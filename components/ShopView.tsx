@@ -18,16 +18,36 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
   const [gachaResult, setGachaResult] = useState<GachaItem | null>(null);
   const [showRates, setShowRates] = useState(false);
 
-  // ピクセルアバター（直接購入可能）
+  // ピクセルアバター（直接購入可能）- 15種類追加し合計23種類に拡充
   const shopItems: ShopItem[] = [
+    // --- 冒険者シリーズ ---
     { id: 'av-p-1', name: 'ピクセル勇者', price: 300, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Hero' },
     { id: 'av-p-2', name: 'ピクセル魔導士', price: 300, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Mage' },
     { id: 'av-p-3', name: 'ドット戦士', price: 450, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Warrior' },
     { id: 'av-p-4', name: 'ピクセル姫', price: 450, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Princess' },
+    { id: 'av-p-5', name: 'ドット忍者', price: 500, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Ninja' },
+    { id: 'av-p-6', name: 'ピクセル農夫', price: 500, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Farmer' },
     { id: 'av-p-10', name: 'ピクセル王', price: 1000, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=King' },
+
+    // --- アニマルシリーズ ---
     { id: 'av-a-1', name: 'ドットわんこ', price: 400, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Dog' },
     { id: 'av-a-2', name: 'ドットにゃんこ', price: 400, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Cat' },
+    { id: 'av-a-3', name: 'ピクセル小鳥', price: 350, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Bird' },
+    { id: 'av-a-4', name: 'ドットうさぎ', price: 450, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Rabbit' },
+    { id: 'av-a-5', name: 'ピクセル狐', price: 550, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Fox' },
+    { id: 'av-a-6', name: 'ドット狼', price: 700, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Wolf' },
+    { id: 'av-a-7', name: 'ピクセル熊', price: 650, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Bear' },
+    { id: 'av-a-8', name: 'ドットカエル', price: 300, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Frog' },
+
+    // --- スペシャル・幻獣シリーズ ---
     { id: 'av-s-1', name: 'ドットロボ', price: 1000, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Robot' },
+    { id: 'av-s-2', name: 'ピクセル宇宙人', price: 1200, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Alien' },
+    { id: 'av-s-3', name: 'ドットおばけ', price: 800, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Ghost' },
+    { id: 'av-s-4', name: 'ピクセルスライム', price: 500, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Slime' },
+    { id: 'av-s-5', name: 'ドットユニコーン', price: 2500, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Unicorn' },
+    { id: 'av-s-6', name: 'ピクセルフェニックス', price: 3000, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Phoenix' },
+    { id: 'av-s-7', name: 'ドットドラゴン', price: 3500, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Dragon' },
+    { id: 'av-s-8', name: 'ピクセル天使', price: 2800, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Angel' },
   ];
 
   // ガチャ景品リスト（重み付け用）
@@ -86,6 +106,12 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
       default: return 'text-slate-400';
     }
   };
+
+  const categories = [
+    { name: '冒険者', items: shopItems.filter(i => i.id.startsWith('av-p')) },
+    { name: 'ピクセルアニマル', items: shopItems.filter(i => i.id.startsWith('av-a')) },
+    { name: 'スペシャル・幻獣', items: shopItems.filter(i => i.id.startsWith('av-s')) },
+  ];
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto pb-10 animate-view">
@@ -182,41 +208,47 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
         </div>
       </section>
 
-      {/* ショップラインナップ */}
-      <section className="space-y-4">
-        <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest px-1">直接購入できるアバター</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {shopItems.map((item) => {
-            const isOwned = stats.unlockedItems.includes(item.id);
-            const canAfford = stats.coins >= item.price;
+      {/* ショップラインナップ - カテゴリ分け */}
+      <div className="space-y-10">
+        {categories.map((cat) => (
+          <section key={cat.name} className="space-y-4">
+            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest px-1 border-l-4 border-indigo-600 pl-3">
+              {cat.name}
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {cat.items.map((item) => {
+                const isOwned = stats.unlockedItems.includes(item.id);
+                const canAfford = stats.coins >= item.price;
 
-            return (
-              <div key={item.id} className="bg-white rounded-[2rem] border border-slate-200 p-3 flex flex-col items-center gap-2 shadow-sm hover:shadow-md transition group">
-                <div className="w-full aspect-square bg-slate-50 rounded-[1.5rem] flex items-center justify-center border border-slate-100 overflow-hidden shadow-inner group-hover:scale-105 transition duration-300">
-                   <img src={item.preview} className="w-full h-full object-contain p-2" alt={item.name} />
-                </div>
-                <div className="text-center space-y-0.5">
-                  <p className="font-bold text-slate-800 text-[10px] truncate w-full px-1">{item.name}</p>
-                  <p className="text-[9px] font-bold text-amber-600">{item.price} 🪙</p>
-                </div>
-                <button
-                  disabled={isOwned || !canAfford}
-                  onClick={() => onPurchase(item)}
-                  className={`w-full py-2.5 rounded-xl font-bold text-[10px] transition-all bounce-on-click ${
-                    isOwned 
-                      ? 'bg-emerald-50 text-emerald-600' 
-                      : canAfford 
-                        ? 'bg-indigo-600 text-white' 
-                        : 'bg-slate-50 text-slate-300'
-                  }`}
-                >
-                  {isOwned ? '入手済み' : '購入'}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+                return (
+                  <div key={item.id} className="bg-white rounded-[2rem] border border-slate-200 p-3 flex flex-col items-center gap-2 shadow-sm hover:shadow-md transition group">
+                    <div className="w-full aspect-square bg-slate-50 rounded-[1.5rem] flex items-center justify-center border border-slate-100 overflow-hidden shadow-inner group-hover:scale-105 transition duration-300">
+                      <img src={item.preview} className="w-full h-full object-contain p-2" alt={item.name} />
+                    </div>
+                    <div className="text-center space-y-0.5">
+                      <p className="font-bold text-slate-800 text-[10px] truncate w-full px-1">{item.name}</p>
+                      <p className="text-[9px] font-bold text-amber-600">{item.price} 🪙</p>
+                    </div>
+                    <button
+                      disabled={isOwned || !canAfford}
+                      onClick={() => onPurchase(item)}
+                      className={`w-full py-2.5 rounded-xl font-bold text-[10px] transition-all bounce-on-click ${
+                        isOwned 
+                          ? 'bg-emerald-50 text-emerald-600' 
+                          : canAfford 
+                            ? 'bg-indigo-600 text-white' 
+                            : 'bg-slate-50 text-slate-300'
+                      }`}
+                    >
+                      {isOwned ? '入手済み' : '購入'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   );
 };
