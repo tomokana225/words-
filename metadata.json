@@ -1,0 +1,8 @@
+{
+  "name": "EikenMaster AI",
+  "description": "A comprehensive English learning application featuring AI-powered word analysis, spaced repetition, and Eiken-level progress tracking.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
