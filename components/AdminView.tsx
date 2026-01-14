@@ -13,17 +13,21 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
+  // 解析ロジック: 単語, 意味, 成り立ち, 例文, 例文の訳 の5カラムに対応
   const parsedWords = useMemo(() => {
     if (!pasteData.trim()) return [];
     const lines = pasteData.split(/\r?\n/).filter(line => line.trim());
     return lines.map((line, idx) => {
-      const parts = line.includes('\t') ? line.split('\t') : line.split(',');
-      const term = parts[0]?.trim() || '';
-      const meaning = parts[1]?.trim() || '';
+      // タブ区切りを優先（Excel/スプレッドシートからのコピペ用）
+      const parts = line.split('\t');
+      
       return {
         id: `admin-${Date.now()}-${idx}`,
-        term,
-        meaning,
+        term: parts[0]?.trim() || '',
+        meaning: parts[1]?.trim() || '',
+        etymology: parts[2]?.trim() || '',
+        exampleSentence: parts[3]?.trim() || '',
+        exampleSentenceJapanese: parts[4]?.trim() || '',
         level: selectedLevel,
         isMastered: false,
         streak: 0,
@@ -48,8 +52,8 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
     <div className="space-y-6 animate-in slide-in-from-right-8 duration-500 pb-20">
       <header className="flex items-center justify-between mb-2">
         <div>
-          <h2 className="text-3xl font-black text-slate-800 tracking-tighter">管理者メニュー</h2>
-          <p className="text-slate-400 font-bold text-sm">クラウドデータベースへ直接書き込みます</p>
+          <h2 className="text-3xl font-black text-slate-800 tracking-tighter">一括データ登録</h2>
+          <p className="text-slate-400 font-bold text-sm">Excelの5列をそのまま貼り付けてFirebaseへ同期</p>
         </div>
         <button onClick={onCancel} className="text-slate-400 font-bold text-sm uppercase hover:text-rose-500 transition">キャンセル</button>
       </header>
@@ -58,14 +62,14 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
         {isSaving && (
           <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-6 animate-in fade-in">
             <div className="w-16 h-16 border-8 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-xl"></div>
-            <p className="font-black text-slate-800 text-xl">Firebaseに同期中...</p>
+            <p className="font-black text-slate-800 text-xl">Firebaseに全データを同期中...</p>
           </div>
         )}
 
         <div className="space-y-4">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center text-white font-bold text-xs">1</div>
-            <h3 className="text-lg font-black text-slate-800">レベルを選択</h3>
+            <h3 className="text-lg font-black text-slate-800">登録する英検級を選択</h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {Object.values(EikenLevel).map(l => (
@@ -87,29 +91,42 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
         <div className="space-y-4">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center text-white font-bold text-xs">2</div>
-            <h3 className="text-lg font-black text-slate-800">Excel等からデータをペースト</h3>
+            <h3 className="text-lg font-black text-slate-800">スプレッドシートからコピペ</h3>
+            <span className="text-[10px] font-black text-indigo-400 bg-indigo-50 px-2 py-1 rounded">5カラム対応: 単語 / 意味 / 成り立ち / 例文 / 例文訳</span>
           </div>
           <textarea
             value={pasteData}
             onChange={(e) => setPasteData(e.target.value)}
-            placeholder="apple	りんご&#10;banana	バナナ"
+            placeholder="apple	りんご	中心に芯がある果物	I like apples.	りんごが好きです。"
             className="w-full h-64 p-6 bg-slate-50 border-2 border-slate-100 rounded-[2rem] font-mono text-sm focus:ring-8 focus:ring-indigo-500/5 outline-none transition shadow-inner"
           />
         </div>
 
         {parsedWords.length > 0 && (
-          <div className="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100 animate-in slide-in-from-top-4">
-            <div className="flex justify-between items-center mb-4 px-2">
-               <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest">書き込みプレビュー ({parsedWords.length}件)</h4>
-            </div>
-            <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-2">
-              {parsedWords.slice(0, 10).map((w, i) => (
-                <div key={i} className="flex justify-between items-center bg-white p-3 rounded-xl border border-indigo-50">
-                  <span className="font-black text-slate-700">{w.term}</span>
-                  <span className="text-sm text-slate-400 font-bold">{w.meaning}</span>
-                </div>
-              ))}
-              {parsedWords.length > 10 && <p className="text-center text-[10px] text-slate-300 font-bold pt-2">他 {parsedWords.length - 10} 件...</p>}
+          <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 animate-in slide-in-from-top-4">
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 px-2">インポートプレビュー ({parsedWords.length}件)</h4>
+            <div className="overflow-x-auto custom-scrollbar rounded-xl border border-slate-200 bg-white">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-500 font-black">
+                    <th className="p-3 border-b">単語</th>
+                    <th className="p-3 border-b">意味</th>
+                    <th className="p-3 border-b">成り立ち</th>
+                    <th className="p-3 border-b">例文</th>
+                  </tr>
+                </thead>
+                <tbody className="font-bold text-slate-600">
+                  {parsedWords.slice(0, 5).map((w, i) => (
+                    <tr key={i} className="hover:bg-indigo-50/30 transition border-b border-slate-50">
+                      <td className="p-3 text-indigo-600">{w.term}</td>
+                      <td className="p-3">{w.meaning}</td>
+                      <td className="p-3 truncate max-w-[150px]">{w.etymology}</td>
+                      <td className="p-3 truncate max-w-[200px]">{w.exampleSentence}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {parsedWords.length > 5 && <div className="p-3 text-center text-slate-300 font-black text-[10px]">...他 {parsedWords.length - 5} 件</div>}
             </div>
           </div>
         )}
@@ -119,32 +136,20 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
           disabled={parsedWords.length === 0 || isSaving}
           className={`w-full py-6 rounded-[2.5rem] font-black text-xl transition-all shadow-2xl bounce-on-click flex items-center justify-center gap-3 ${
             parsedWords.length > 0 
-              ? 'bg-slate-900 text-white hover:bg-black shadow-slate-200' 
+              ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200' 
               : 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none'
           }`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          {parsedWords.length > 0 ? `Firebaseに ${parsedWords.length} 単語を保存` : 'データ入力待ち'}
+          {parsedWords.length > 0 ? `Firebaseに一括保存して同期` : 'データを入力してください'}
         </button>
 
         {isSuccess && (
           <div className="p-5 bg-emerald-50 border-2 border-emerald-100 rounded-[2rem] flex items-center gap-4 text-emerald-600 animate-in zoom-in-95 shadow-lg shadow-emerald-50">
             <div className="w-10 h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center font-black">✓</div>
-            <span className="font-black text-lg">クラウド同期が完了しました！</span>
+            <span className="font-black text-lg">クラウド同期に成功しました！</span>
           </div>
         )}
-      </div>
-
-      <div className="bg-amber-50 rounded-[2.5rem] p-8 border border-amber-100 shadow-sm">
-        <h3 className="text-lg font-black text-amber-600 mb-3 flex items-center gap-2">
-           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-           Firebase保存の注意点
-        </h3>
-        <ul className="text-amber-700/70 text-sm font-bold leading-relaxed space-y-2 list-disc pl-5">
-          <li>保存された単語はログイン中のアカウントに紐付き、他のデバイスからもアクセス可能です。</li>
-          <li>解析済みの単語データはグローバルキャッシュとして保存され、AIの応答速度を向上させます。</li>
-          <li>一度に500件以上の登録は推奨されません。分割して登録してください。</li>
-        </ul>
       </div>
     </div>
   );

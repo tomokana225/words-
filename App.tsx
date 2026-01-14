@@ -4,7 +4,6 @@ import { EikenLevel, Word, QuizResult } from './types';
 import Dashboard from './components/Dashboard';
 import QuizView from './components/QuizView';
 import WordDetailView from './components/WordDetailView';
-import ImportView from './components/ImportView';
 import DiagnosisView from './components/DiagnosisView';
 import AdminView from './components/AdminView';
 import LevelWordListView from './components/LevelWordListView';
@@ -26,13 +25,12 @@ const INITIAL_WORDS: Word[] = [
 ];
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'dashboard' | 'quiz' | 'detail' | 'import' | 'diagnosis' | 'admin' | 'level_preview'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'quiz' | 'detail' | 'diagnosis' | 'admin' | 'level_preview'>('dashboard');
   const [user, setUser] = useState<User | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<EikenLevel | 'ALL' | 'REVIEW' | 'WEAK'>('ALL');
 
-  // Load words and sync
   useEffect(() => {
     const local = localStorage.getItem('eiken_ai_words');
     if (local) setWords(JSON.parse(local));
@@ -88,18 +86,20 @@ const App: React.FC = () => {
   }, [user]);
 
   const handleBatchImport = async (newWords: Word[]) => {
-    // ローカル状態を更新
+    // ローカル状態を即座に更新（UI応答性のため）
     setWords(prev => {
-      const existingTerms = new Set(prev.map(w => w.term.toLowerCase()));
-      const filteredNew = newWords.filter(nw => !existingTerms.has(nw.term.toLowerCase()));
-      return [...prev, ...filteredNew];
+      const currentMap = new Map(prev.map(w => [w.term.toLowerCase(), w]));
+      newWords.forEach(nw => {
+        currentMap.set(nw.term.toLowerCase(), { ...currentMap.get(nw.term.toLowerCase()), ...nw });
+      });
+      return Array.from(currentMap.values());
     });
 
-    // Firebaseへ保存
+    // Firebaseへ非同期保存
     if (user) {
+      // 負荷軽減のため順番に処理（必要に応じてPromise.all）
       for (const w of newWords) {
         await saveUserWordProgress(user.uid, w);
-        // 基本情報もグローバルDBに保存（キャッシュ効率化のため）
         await saveWordToDB(w);
       }
     }
@@ -162,7 +162,7 @@ const App: React.FC = () => {
             {[
               { id: 'dashboard', label: 'ホーム', icon: <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/> },
               { id: 'diagnosis', label: '単語力診断', icon: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/> },
-              { id: 'admin', label: '単語追加', icon: <path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/> },
+              { id: 'admin', label: 'データ登録', icon: <path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/> },
             ].map(item => (
               <button 
                 key={item.id}
