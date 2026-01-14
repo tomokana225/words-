@@ -18,23 +18,31 @@ import {
 } from "firebase/auth";
 import { Word } from "../types";
 
-// Firebaseの設定を環境変数から取得
-const configStr = process.env.FIREBASE_CONFIG;
-const isDevMode = !configStr || configStr === '{}' || configStr.includes('YOUR_');
+// 個別の環境変数を元に設定オブジェクトを構築
+const firebaseConfig = {
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID
+};
+
+// apiKeyが存在しない、またはプレースホルダの場合はDevモードと判定
+const isDevMode = !firebaseConfig.apiKey || firebaseConfig.apiKey.includes('YOUR_');
 
 let db: any = null;
 let auth: any = null;
 const provider = new GoogleAuthProvider();
 
-// Firebaseの初期化 (設定がある場合のみ)
-if (!isDevMode && configStr) {
+if (!isDevMode) {
   try {
-    const firebaseConfig = JSON.parse(configStr);
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     auth = getAuth(app);
   } catch (e) {
-    console.error("Firebase Initialization Failed, falling back to Dev Mode", e);
+    console.error("Firebase Initialization Failed", e);
   }
 }
 
@@ -55,7 +63,7 @@ export const loginWithGoogle = async () => {
   if (isDevMode) {
     console.log("Dev Mode: Simulating Google Login");
     localStorage.setItem('mock_auth_user', JSON.stringify(MOCK_USER));
-    window.location.reload(); // 状態更新のためにリロード
+    window.location.reload();
     return MOCK_USER;
   }
   try {
@@ -107,7 +115,7 @@ export const fetchWordFromDB = async (term: string): Promise<Partial<Word> | nul
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? (docSnap.data() as Word) : null;
   } catch (error) {
-    console.warn("DB Fetch Error (Dev Mode active?):", error);
+    console.warn("DB Fetch Error:", error);
     return null;
   }
 };
