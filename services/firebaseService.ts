@@ -27,11 +27,19 @@ const firebaseConfig = {
   appId: process.env.FIREBASE_APP_ID,
 };
 
-// 必須の環境変数が揃っているかチェック
-const requiredKeys = ["apiKey", "authDomain", "projectId", "appId"];
-const missingKeys = requiredKeys.filter(key => !firebaseConfig[key as keyof typeof firebaseConfig]);
+// 必須キーと、Cloudflare上での実際の環境変数名のマッピング
+const requiredEnvMapping: Record<string, string> = {
+  apiKey: "FIREBASE_API_KEY",
+  authDomain: "FIREBASE_AUTH_DOMAIN",
+  projectId: "FIREBASE_PROJECT_ID",
+  appId: "FIREBASE_APP_ID",
+};
 
-export const isFirebaseEnabled = missingKeys.length === 0;
+const missingEnvVars = Object.entries(requiredEnvMapping)
+  .filter(([configKey]) => !firebaseConfig[configKey as keyof typeof firebaseConfig])
+  .map(([_, envName]) => envName);
+
+export const isFirebaseEnabled = missingEnvVars.length === 0;
 
 let db: any = null;
 let auth: any = null;
@@ -43,13 +51,13 @@ if (isFirebaseEnabled) {
     db = getFirestore(app);
     auth = getAuth(app);
     provider = new GoogleAuthProvider();
-    console.log("✅ Firebase initialized successfully.");
+    console.log("✅ Firebase initialized with Cloudflare Secrets.");
   } catch (e) {
     console.error("❌ Firebase Initialization Failed:", e);
   }
 } else {
   console.warn("⚠️ Firebase configuration is incomplete. Running in MOCK MODE.");
-  console.warn("Missing environment variables in Cloudflare:", missingKeys.map(k => `FIREBASE_${k.toUpperCase()}`).join(", "));
+  console.warn("Please set the following SECRETS in Cloudflare dashboard:", missingEnvVars.join(", "));
 }
 
 const MOCK_USER: any = {
@@ -60,25 +68,20 @@ const MOCK_USER: any = {
 };
 
 export const loginWithGoogle = async () => {
-  // Firebaseが有効な場合のみポップアップを表示
   if (isFirebaseEnabled && auth && provider) {
     try {
-      console.log("Opening Google Auth Popup...");
       const result = await signInWithPopup(auth, provider);
       return result.user;
     } catch (error: any) {
       console.error("Google Auth Error:", error);
-      // ポップアップブロックなどの一般的なエラーに対応
       if (error.code === 'auth/popup-blocked') {
         alert("ポップアップがブロックされました。ブラウザの設定で許可してください。");
       } else {
-        alert("ログインに失敗しました: " + (error.message || "不明なエラー"));
+        alert("ログインに失敗しました。シークレット設定やFirebaseドメイン制限を確認してください。");
       }
       return null;
     }
   } else {
-    // Firebaseの設定がない場合はモックログイン
-    console.log("Using Mock Login because Firebase is disabled.");
     localStorage.setItem('eiken_mock_user', JSON.stringify(MOCK_USER));
     window.location.reload();
     return MOCK_USER;
@@ -120,7 +123,6 @@ export const saveWordToDB = async (word: Word) => {
   if (!db) return;
   try {
     await setDoc(doc(db, "global_vocabulary", word.term.toLowerCase()), word, { merge: true });
-    console.log(`Word "${word.term}" saved to global DB.`);
   } catch (error) {
     console.error("Global DB Save Error:", error);
   }
@@ -136,7 +138,7 @@ export const saveUserWordProgress = async (userId: string, word: Word) => {
     };
     await setDoc(ref, dataToSave, { merge: true });
   } catch (error) {
-    console.error("User Progress Cloud Save Error:", error);
+    console.error("User Cloud Save Error:", error);
   }
 };
 
@@ -145,8 +147,7 @@ export const fetchUserWords = async (userId: string): Promise<Word[]> => {
   try {
     const colRef = collection(db, "users", userId, "progress");
     const snap = await getDocs(colRef);
-    const result = snap.docs.map(d => d.data() as Word);
-    return result;
+    return snap.docs.map(d => d.data() as Word);
   } catch (error) {
     console.error("User Words Cloud Fetch Error:", error);
     return [];
