@@ -8,13 +8,15 @@ import DiagnosisView from './components/DiagnosisView';
 import AdminView from './components/AdminView';
 import LevelWordListView from './components/LevelWordListView';
 import { 
+  initializeFirebase,
   onAuthChange, 
   loginWithGoogle, 
   logout, 
   fetchUserWords, 
   saveUserWordProgress,
   saveWordToDB,
-  isFirebaseEnabled
+  getAdminEmail,
+  isFirebaseReady
 } from './services/firebaseService';
 import { User } from 'firebase/auth';
 
@@ -26,68 +28,68 @@ const INITIAL_WORDS: Word[] = [
 ];
 
 const App: React.FC = () => {
+  const [isAppReady, setIsAppReady] = useState(false);
   const [view, setView] = useState<'dashboard' | 'quiz' | 'detail' | 'diagnosis' | 'admin' | 'level_preview'>('dashboard');
   const [user, setUser] = useState<User | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<EikenLevel | 'ALL' | 'REVIEW' | 'WEAK'>('ALL');
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
 
   // 管理者かどうかを判定
   const isAdmin = useMemo(() => {
-    return user?.email === process.env.ADMIN_EMAIL;
+    return user?.email === getAdminEmail();
   }, [user]);
 
-  // 1. 初回起動時の読み込み
+  // 1. 初期化シーケンス
   useEffect(() => {
-    const local = localStorage.getItem('eiken_ai_words');
-    if (local) {
-      setWords(JSON.parse(local));
-    } else {
-      setWords(INITIAL_WORDS);
-    }
-  }, []);
-
-  // 2. 認証とFirebase同期
-  useEffect(() => {
-    const unsubscribe = onAuthChange(async (fbUser) => {
-      setUser(fbUser);
-      if (fbUser) {
-        setIsSyncing(true);
-        try {
-          const cloudWords = await fetchUserWords(fbUser.uid);
-          if (cloudWords.length > 0) {
-            setWords(prev => {
-              const wordMap = new Map<string, Word>();
-              // クラウドデータを優先的にマージ
-              cloudWords.forEach(cw => wordMap.set(cw.term.toLowerCase(), cw));
-              // ローカルにしかない単語があれば追加
-              prev.forEach(w => {
-                if (!wordMap.has(w.term.toLowerCase())) {
-                  wordMap.set(w.term.toLowerCase(), w);
-                }
-              });
-              return Array.from(wordMap.values());
-            });
-          }
-        } catch (error) {
-          console.error("Sync error:", error);
-        } finally {
-          setIsSyncing(false);
-        }
+    const init = async () => {
+      // Cloudflareのシークレットから構成をフェッチしてFirebaseを起動
+      await initializeFirebase();
+      
+      // ローカル単語データの復元
+      const local = localStorage.getItem('eiken_ai_words');
+      if (local) {
+        setWords(JSON.parse(local));
+      } else {
+        setWords(INITIAL_WORDS);
       }
-      setIsInitialLoadDone(true);
-    });
-    return () => unsubscribe();
+      
+      // 認証の監視開始
+      const unsubscribe = onAuthChange(async (fbUser) => {
+        setUser(fbUser);
+        if (fbUser) {
+          setIsSyncing(true);
+          try {
+            const cloudWords = await fetchUserWords(fbUser.uid);
+            if (cloudWords.length > 0) {
+              setWords(prev => {
+                const wordMap = new Map<string, Word>();
+                cloudWords.forEach(cw => wordMap.set(cw.term.toLowerCase(), cw));
+                prev.forEach(w => {
+                  if (!wordMap.has(w.term.toLowerCase())) wordMap.set(w.term.toLowerCase(), w);
+                });
+                return Array.from(wordMap.values());
+              });
+            }
+          } finally {
+            setIsSyncing(false);
+          }
+        }
+        setIsAppReady(true);
+      });
+
+      return () => unsubscribe();
+    };
+    init();
   }, []);
 
-  // 3. データの保存 (LocalStorage)
+  // データの保存 (LocalStorage)
   useEffect(() => {
-    if (isInitialLoadDone && words.length > 0) {
+    if (isAppReady && words.length > 0) {
       localStorage.setItem('eiken_ai_words', JSON.stringify(words));
     }
-  }, [words, isInitialLoadDone]);
+  }, [words, isAppReady]);
 
   const handleUpdateWord = useCallback(async (updated: Word) => {
     setWords(prev => {
@@ -166,6 +168,16 @@ const App: React.FC = () => {
     return words.filter(w => w.level === selectedLevel);
   }, [words, selectedLevel]);
 
+  if (!isAppReady) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+        <div className="w-16 h-16 border-8 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-2xl mb-8"></div>
+        <p className="font-black text-slate-800 text-2xl tracking-tight">EikenMaster AI 安全に起動中...</p>
+        <p className="text-slate-400 font-bold mt-2">Cloudflare Secretsを読み込んでいます</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 relative">
       {view !== 'quiz' && (
@@ -193,7 +205,7 @@ const App: React.FC = () => {
             ))}
           </nav>
           <div className="pt-8 border-t border-slate-100">
-             {!isFirebaseEnabled && (
+             {!isFirebaseReady() && (
                <div className="mb-4 px-4 py-2 bg-amber-50 text-amber-600 text-[10px] font-black rounded-lg flex items-center gap-2 border border-amber-100">
                  ⚠️ オフライン(モック)モード
                </div>

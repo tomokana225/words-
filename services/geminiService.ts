@@ -1,9 +1,23 @@
 
-import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { GenerateContentResponse, Type, Modality } from "@google/genai";
 import { Word } from "../types";
 
-// Initialize with the standard API key variable
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+// サーバーサイド・プロキシ経由でGeminiを呼び出す汎用関数
+const callGeminiProxy = async (payload: any) => {
+  const response = await fetch("/api/gemini", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "generateContent",
+      ...payload
+    }),
+  });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error || "Proxy request failed");
+  }
+  return await response.json() as GenerateContentResponse;
+};
 
 // Audio Decoding Helper
 async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
@@ -29,9 +43,8 @@ function decodeBase64(base64: string) {
 }
 
 export const playPronunciation = async (text: string) => {
-  const ai = getAI();
   try {
-    const response = await ai.models.generateContent({
+    const response = await callGeminiProxy({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text: `Read this English phrase naturally: ${text}` }] }],
       config: {
@@ -54,14 +67,13 @@ export const playPronunciation = async (text: string) => {
     source.connect(audioCtx.destination);
     source.start();
   } catch (error) {
-    console.error("TTS Error:", error);
+    console.error("TTS Error via Proxy:", error);
   }
 };
 
 export const getWordDetails = async (term: string): Promise<Partial<Word>> => {
-  const ai = getAI();
   try {
-    const response = await ai.models.generateContent({
+    const response = await callGeminiProxy({
       model: "gemini-3-pro-preview",
       contents: `Analyze the English word "${term}". Provide professional linguistic details in Japanese. 
       Include: phonetic symbols, etymology (prefix/root/suffix breakdown), core image concept description, 3 synonyms, and a natural example sentence with its Japanese translation.`,
@@ -82,15 +94,14 @@ export const getWordDetails = async (term: string): Promise<Partial<Word>> => {
     });
     return JSON.parse(response.text || '{}');
   } catch (error) {
-    console.error("getWordDetails Error:", error);
+    console.error("getWordDetails Proxy Error:", error);
     return {};
   }
 };
 
 export const generateCoreImage = async (term: string, meaning: string): Promise<string | null> => {
-  const ai = getAI();
   try {
-    const response = await ai.models.generateContent({
+    const response = await callGeminiProxy({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [{ text: `A clean, vivid 3D educational minimalist illustration for the English word "${term}" (meaning: ${meaning}). High quality icon style, bright professional colors, white background. Visualizes the core abstract concept without any text.` }]
@@ -102,15 +113,14 @@ export const generateCoreImage = async (term: string, meaning: string): Promise<
     const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
     return part?.inlineData ? `data:image/png;base64,${part.inlineData.data}` : null;
   } catch (error) {
-    console.error("generateCoreImage Error:", error);
+    console.error("generateCoreImage Proxy Error:", error);
     return null;
   }
 };
 
 export const getDiagnosticQuiz = async (level: string): Promise<any[]> => {
-  const ai = getAI();
   try {
-    const response = await ai.models.generateContent({
+    const response = await callGeminiProxy({
       model: "gemini-3-flash-preview",
       contents: `Generate 10 essential vocabulary quiz questions for Eiken ${level}. Each question should be a 4-choice quiz with one correct index (0-3). Output in JSON format.`,
       config: {
@@ -132,7 +142,7 @@ export const getDiagnosticQuiz = async (level: string): Promise<any[]> => {
     });
     return JSON.parse(response.text || '[]');
   } catch (error) {
-    console.error("getDiagnosticQuiz Error:", error);
+    console.error("getDiagnosticQuiz Proxy Error:", error);
     return [];
   }
 };
