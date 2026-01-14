@@ -15,6 +15,8 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord 
   const now = Date.now();
   const reviewCount = words.filter(w => w.nextReviewDate && w.nextReviewDate <= now && !w.isMastered).length;
   const masteredCount = words.filter(w => w.isMastered).length;
+  const weakCount = words.filter(w => !w.isMastered && (w.difficultyScore || 0) > 0).length;
+  
   const levels = Object.values(EikenLevel);
 
   const filteredWords = useMemo(() => {
@@ -60,10 +62,10 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord 
           <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="text-center sm:text-left">
               <div className="inline-flex items-center gap-2 bg-white/20 px-4 py-1.5 rounded-full text-[10px] md:text-xs font-black uppercase tracking-widest mb-4 backdrop-blur-md">
-                <span className="animate-pulse">●</span> Memory Optimization active
+                <span className="animate-pulse">●</span> Spaced Repetition Active
               </div>
               <h2 className="text-3xl md:text-5xl font-black leading-tight tracking-tighter">{reviewCount} 単語の復習タイム！</h2>
-              <p className="text-rose-50 text-sm md:text-base mt-4 font-bold opacity-90">忘却曲線を味方につけて、最短で英単語をマスターしましょう 🚀</p>
+              <p className="text-rose-50 text-sm md:text-base mt-4 font-bold opacity-90">忘却曲線を味方に。今復習するのが最も効率的です 🚀</p>
             </div>
             <div className="bg-white/20 backdrop-blur-xl p-8 rounded-[3rem] shadow-inner border border-white/30 group-hover:rotate-12 transition duration-500 shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
@@ -72,16 +74,32 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord 
         </div>
       )}
 
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">総単語数</span>
+          <span className="text-3xl font-black text-slate-800">{words.length}</span>
+        </div>
+        <div className="bg-emerald-50 p-6 rounded-[2rem] shadow-sm border border-emerald-100 flex flex-col items-center">
+          <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">暗記完了</span>
+          <span className="text-3xl font-black text-emerald-600">{masteredCount}</span>
+        </div>
+        <div className="bg-rose-50 p-6 rounded-[2rem] shadow-sm border border-rose-100 flex flex-col items-center">
+          <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2">苦手単語</span>
+          <span className="text-3xl font-black text-rose-600">{weakCount}</span>
+        </div>
+        <div className="bg-indigo-50 p-6 rounded-[2rem] shadow-sm border border-indigo-100 flex flex-col items-center">
+          <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">要復習</span>
+          <span className="text-3xl font-black text-indigo-600">{reviewCount}</span>
+        </div>
+      </div>
+
       {/* Progress Section */}
       <section>
         <div className="flex justify-between items-end mb-8 px-2">
           <div>
-            <h3 className="text-3xl font-black text-slate-800 tracking-tighter">英検学習コース</h3>
-            <p className="text-slate-400 font-bold mt-1">レベルを選択して単語をチェックしましょう</p>
-          </div>
-          <div className="hidden sm:block text-right">
-             <span className="text-[10px] font-black text-slate-300 uppercase block mb-1">Total Achievement</span>
-             <span className="text-2xl font-black text-indigo-500">{masteredCount}<span className="text-slate-300 text-base mx-1">/</span>{words.length}</span>
+            <h3 className="text-3xl font-black text-slate-800 tracking-tighter">英検レベル別</h3>
+            <p className="text-slate-400 font-bold mt-1">各レベルの進捗状況</p>
           </div>
         </div>
         
@@ -139,7 +157,7 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord 
             </div>
             <input 
               type="text"
-              placeholder="単語、意味、レベルで検索..."
+              placeholder="検索..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-16 pr-8 py-5 bg-white border border-slate-100 rounded-[2rem] text-sm md:text-base font-bold focus:ring-8 focus:ring-indigo-500/5 outline-none transition-all shadow-inner"
@@ -147,7 +165,7 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord 
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 max-h-[800px] overflow-y-auto pr-4 custom-scrollbar">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
           {filteredWords.map(word => (
             <div 
               key={word.id} 
@@ -158,11 +176,13 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord 
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl transition-all duration-500 ${
                   word.isMastered 
                     ? 'bg-emerald-100 text-emerald-500 rotate-6' 
+                    : (word.difficultyScore || 0) > 20
+                    ? 'bg-rose-100 text-rose-500'
                     : (word.nextReviewDate && word.nextReviewDate <= now) 
-                    ? 'bg-rose-100 text-rose-500 animate-pulse' 
+                    ? 'bg-amber-100 text-amber-500 animate-pulse' 
                     : 'bg-slate-50 text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-500'
                 }`}>
-                  {word.isMastered ? '✓' : (word.nextReviewDate && word.nextReviewDate <= now) ? '⏰' : '•'}
+                  {word.isMastered ? '✓' : (word.difficultyScore || 0) > 20 ? '🔥' : (word.nextReviewDate && word.nextReviewDate <= now) ? '⏰' : '•'}
                 </div>
                 <div>
                   <p className="font-black text-slate-700 text-xl leading-tight group-hover:text-indigo-600 transition">{word.term}</p>
@@ -180,10 +200,8 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord 
             </div>
           ))}
           {filteredWords.length === 0 && (
-            <div className="col-span-full text-center py-32">
-              <div className="text-8xl mb-6">🏜️</div>
-              <h4 className="text-2xl font-black text-slate-300">単語が見つかりませんでした</h4>
-              <p className="text-slate-200 font-bold mt-2">条件を変えて検索してみてください</p>
+            <div className="col-span-full text-center py-20">
+              <h4 className="text-xl font-black text-slate-300">単語が見つかりませんでした</h4>
             </div>
           )}
         </div>

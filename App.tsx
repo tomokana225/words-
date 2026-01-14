@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { EikenLevel, Word, QuizResult } from './types';
 import Dashboard from './components/Dashboard';
@@ -45,8 +46,17 @@ const App: React.FC = () => {
             const merged = [...prev];
             dbWords.forEach(dbW => {
               const idx = merged.findIndex(w => w.term.toLowerCase() === dbW.term?.toLowerCase());
-              if (idx > -1) merged[idx] = { ...merged[idx], ...dbW };
-              else if (dbW.term) merged.push({ id: `db-${Date.now()}`, term: dbW.term, meaning: 'ロード中...', level: EikenLevel.GRADE_3, ...dbW });
+              if (idx > -1) {
+                merged[idx] = { ...merged[idx], ...dbW };
+              } else if (dbW.term) {
+                merged.push({ 
+                  id: `db-${Date.now()}-${Math.random()}`, 
+                  term: dbW.term, 
+                  meaning: '同期中...', 
+                  level: EikenLevel.GRADE_3, 
+                  ...dbW 
+                });
+              }
             });
             return merged;
           });
@@ -63,15 +73,15 @@ const App: React.FC = () => {
         const now = Date.now();
         const dueWords = words.filter(w => w.nextReviewDate && w.nextReviewDate <= now && !w.isMastered);
         if (dueWords.length > 0) {
-          new Notification('英単語復習の時間です！', {
-            body: `${dueWords.length} 個の単語が復習を待っています。`,
-            icon: '/favicon.ico'
+          new Notification('EikenMaster: 復習の時間です！', {
+            body: `${dueWords.length} 個の単語があなたの挑戦を待っています。`,
+            icon: 'https://cdn-icons-png.flaticon.com/512/3039/3039434.png'
           });
         }
       }
     };
 
-    const interval = setInterval(checkReviews, 3600000); // 1時間ごとにチェック
+    const interval = setInterval(checkReviews, 3600000 * 4); // 4時間ごとにチェック
     return () => clearInterval(interval);
   }, [words]);
 
@@ -81,10 +91,10 @@ const App: React.FC = () => {
 
   const handleUpdateWord = useCallback(async (updatedWord: Word) => {
     setWords(prev => {
-      const idx = prev.findIndex(w => w.id === updatedWord.id || w.term === updatedWord.term);
+      const idx = prev.findIndex(w => w.id === updatedWord.id || w.term.toLowerCase() === updatedWord.term.toLowerCase());
       if (idx > -1) {
         const newWords = [...prev];
-        newWords[idx] = updatedWord;
+        newWords[idx] = { ...newWords[idx], ...updatedWord };
         return newWords;
       }
       return [...prev, updatedWord];
@@ -101,25 +111,40 @@ const App: React.FC = () => {
         if (wordIdx > -1) {
           const isCorrect = results.userAnswers[idx] === q.correctIndex;
           const target = { ...updatedWords[wordIdx] };
+          
           if (isCorrect) {
             target.streak = (target.streak || 0) + 1;
+            // 忘却曲線スケジューリング: 1, 3, 7, 14, 30日
             const intervals = [1, 3, 7, 14, 30];
-            const nextIdx = Math.min(target.streak - 1, intervals.length - 1);
-            target.nextReviewDate = Date.now() + (intervals[nextIdx] * 86400000);
-            if (target.streak >= 5) target.isMastered = true;
+            const intervalIdx = Math.min(target.streak - 1, intervals.length - 1);
+            target.nextReviewDate = Date.now() + (intervals[intervalIdx] * 86400000);
+            
+            // 5回連続正解で「マスター（完了）」
+            if (target.streak >= 5) {
+              target.isMastered = true;
+            }
           } else {
+            // 不正解ならストリークをリセットし、難易度スコアを加算
             target.streak = 0;
             target.difficultyScore = (target.difficultyScore || 0) + 10;
+            // 1時間後に再復習
             target.nextReviewDate = Date.now() + 3600000;
             target.isMastered = false;
           }
+          
           updatedWords[wordIdx] = target;
           updatedBatch.push(target);
         }
       });
       return updatedWords;
     });
-    if (user) for (const w of updatedBatch) await saveUserWordProgress(user.uid, w);
+    
+    // バックグラウンドでFirebaseに同期
+    if (user) {
+      for (const w of updatedBatch) {
+        await saveUserWordProgress(user.uid, w);
+      }
+    }
   }, [user]);
 
   const quizPool = useMemo(() => {
@@ -131,16 +156,16 @@ const App: React.FC = () => {
     return words.filter(w => w.level === selectedLevel);
   }, [words, selectedLevel]);
 
-  const isQuizView = view === 'quiz';
-
   const requestNotificationPermission = async () => {
     if ('Notification' in window) {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
-        alert('通知が有効になりました！復習の時間にお知らせします。');
+        alert('通知を有効にしました。最適な復習タイミングをお知らせします！');
       }
     }
   };
+
+  const isQuizView = view === 'quiz';
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 relative overflow-hidden">
@@ -175,7 +200,7 @@ const App: React.FC = () => {
             </button>
             <button onClick={requestNotificationPermission} className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition">
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-              <span>通知を有効化</span>
+              <span>通知設定</span>
             </button>
           </nav>
 
@@ -197,29 +222,6 @@ const App: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col w-full relative">
-        {!isQuizView && (
-          <header className="md:hidden px-6 pt-10 pb-6 flex items-center justify-between sticky top-0 z-40 bg-white/60 backdrop-blur-xl border-b border-white/40">
-            <div onClick={() => setView('dashboard')} className="cursor-pointer">
-              <h1 className="text-xl font-black tracking-tighter flex items-center gap-2">
-                <span className="w-8 h-8 gradient-primary text-white rounded-xl shadow-lg flex items-center justify-center transform -rotate-6">
-                  <svg xmlns="http://www.w3.org/2000/round" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-                </span>
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">EikenMaster</span>
-              </h1>
-            </div>
-            <div className="flex items-center gap-3">
-              {user && (
-                <button onClick={() => logout()} className="w-10 h-10 rounded-xl overflow-hidden border-2 border-white shadow-md">
-                  <img src={user.photoURL || ''} alt="User" className="w-full h-full object-cover" />
-                </button>
-              )}
-              <button onClick={() => setView('admin')} className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center shadow-lg">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/></svg>
-              </button>
-            </div>
-          </header>
-        )}
-
         <main className={`flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 md:px-12 lg:px-16 ${isQuizView ? 'pt-0' : 'pt-6'} pb-32`}>
           {view === 'dashboard' && <Dashboard words={words} onSelectLevel={(lvl) => { setSelectedLevel(lvl); setView('level_preview'); }} onViewWord={(w) => { setCurrentWord(w); setView('detail'); }} />}
           {view === 'level_preview' && <LevelWordListView level={selectedLevel} words={quizPool} onStartQuiz={() => setView('quiz')} onBack={() => setView('dashboard')} onViewWord={(w) => { setCurrentWord(w); setView('detail'); }} />}
@@ -230,7 +232,7 @@ const App: React.FC = () => {
           {view === 'admin' && <AdminView onImport={(w) => { setWords(prev => [...prev, ...w]); setView('dashboard'); }} onCancel={() => setView('dashboard')} />}
         </main>
 
-        {/* Mobile Botton Navigation */}
+        {/* Mobile Navigation */}
         {!isQuizView && (
           <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/70 backdrop-blur-2xl border-t border-white/50 px-8 py-4 pb-safe flex items-center justify-between z-50 rounded-t-[3rem] shadow-2xl">
             <button onClick={() => setView('dashboard')} className={`flex flex-col items-center gap-1.5 transition-all ${view === 'dashboard' ? 'text-indigo-600 scale-110' : 'text-slate-300'}`}>

@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Word } from "../types";
 
@@ -61,11 +62,12 @@ export const getWordDetails = async (term: string): Promise<Partial<Word>> => {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `英単語「${term}」の詳細情報をJSONで提供してください。
+      contents: `英単語「${term}」を深く分析してください。
+      以下の項目を日本語で提供してください：
       - phonetic: 発音記号
-      - etymology: 語源、接頭辞・接尾辞の解説を含む成り立ち（日本語で詳しく）
-      - synonyms: 類義語の配列
-      - exampleSentence: 英語の例文
+      - etymology: 接頭辞、接尾辞、語根に分解した単語の成り立ちと、覚え方のコツ（コアイメージ）。
+      - synonyms: 類義語（3つ程度）
+      - exampleSentence: その単語の自然な英語例文
       - exampleSentenceJapanese: 例文の和訳`,
       config: {
         responseMimeType: "application/json",
@@ -94,7 +96,7 @@ export const generateCoreImage = async (term: string, meaning: string): Promise<
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [{ text: `A simple, clean, educational illustration representing the core concept of the word "${term}" (${meaning}). Style: minimalistic icon, 3D render feel, vibrant colors, white background, no text.` }]
+        parts: [{ text: `A vibrant, high-quality 3D educational illustration depicting the core visual concept of the word "${term}" (${meaning}). Use soft lighting, clear symbolism, minimalistic background, and bright professional colors. No text in the image.` }]
       }
     });
     const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
@@ -109,7 +111,7 @@ export const getDiagnosticQuiz = async (level: string): Promise<any[]> => {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `英検${level}レベルの重要単語10個をリストアップし、それぞれの意味をJSON形式で生成してください。`,
+      contents: `英検${level}レベルの合格に必須な重要単語10個をリストアップし、それぞれの意味をJSON形式で生成してください。`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
