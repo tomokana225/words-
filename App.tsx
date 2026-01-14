@@ -32,26 +32,25 @@ const App: React.FC = () => {
   const [selectedLevel, setSelectedLevel] = useState<EikenLevel | 'ALL' | 'REVIEW' | 'WEAK'>('ALL');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Load words and sync with Firebase on start/login
+  // 管理者かどうかを判定
+  const isAdmin = useMemo(() => {
+    return user?.email === process.env.ADMIN_EMAIL;
+  }, [user]);
+
   useEffect(() => {
-    // 1. まず LocalStorage から読み込む（即時表示用）
     const local = localStorage.getItem('eiken_ai_words');
     if (local) setWords(JSON.parse(local));
     else setWords(INITIAL_WORDS);
 
-    // 2. 認証状態の変化を監視
     const unsubscribe = onAuthChange(async (fbUser) => {
       setUser(fbUser);
       if (fbUser) {
         setIsSyncing(true);
         try {
-          // Firebaseからユーザーの単語データを全件取得
           const cloudWords = await fetchUserWords(fbUser.uid);
           if (cloudWords.length > 0) {
             setWords(prev => {
-              // サーバーのデータを優先してマージ
               const wordMap = new Map<string, Word>();
-              // ローカルのデータを先に入れ、サーバーデータで上書きする
               prev.forEach(w => wordMap.set(w.term.toLowerCase(), w));
               cloudWords.forEach(cw => wordMap.set(cw.term.toLowerCase(), cw));
               return Array.from(wordMap.values());
@@ -67,7 +66,6 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // 保存（LocalStorage）
   useEffect(() => {
     if (words.length > 0) localStorage.setItem('eiken_ai_words', JSON.stringify(words));
   }, [words]);
@@ -84,9 +82,12 @@ const App: React.FC = () => {
     });
     if (user) {
       await saveUserWordProgress(user.uid, updated);
-      await saveWordToDB(updated);
+      // 管理者の場合は常にグローバルDBも更新
+      if (isAdmin) {
+        await saveWordToDB(updated);
+      }
     }
-  }, [user]);
+  }, [user, isAdmin]);
 
   const handleBatchImport = async (newWords: Word[]) => {
     setWords(prev => {
@@ -98,10 +99,12 @@ const App: React.FC = () => {
     });
 
     if (user) {
-      // Firebaseへ非同期保存
       for (const w of newWords) {
         await saveUserWordProgress(user.uid, w);
-        await saveWordToDB(w);
+        // 管理者としてインポートした場合はグローバル辞書に直接書き込む
+        if (isAdmin) {
+          await saveWordToDB(w);
+        }
       }
     }
     setView('dashboard');
@@ -163,7 +166,7 @@ const App: React.FC = () => {
             {[
               { id: 'dashboard', label: 'ホーム', icon: <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/> },
               { id: 'diagnosis', label: '単語力診断', icon: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/> },
-              { id: 'admin', label: 'データ登録', icon: <path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/> },
+              ...(isAdmin ? [{ id: 'admin', label: '一括登録', icon: <path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/> }] : []),
             ].map(item => (
               <button 
                 key={item.id}
@@ -183,10 +186,13 @@ const App: React.FC = () => {
                </div>
              )}
              {user ? (
-               <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50">
+               <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 relative group">
                  <img src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} className="w-10 h-10 rounded-xl shadow-sm" alt="User"/>
                  <div className="overflow-hidden">
-                   <p className="font-bold text-slate-700 truncate text-sm">{user.displayName}</p>
+                   <div className="flex items-center gap-2">
+                     <p className="font-bold text-slate-700 truncate text-sm">{user.displayName}</p>
+                     {isAdmin && <span className="bg-amber-400 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-sm">ADMIN</span>}
+                   </div>
                    <button onClick={() => logout()} className="text-[10px] font-black text-rose-500 hover:underline">LOGOUT</button>
                  </div>
                </div>
@@ -202,7 +208,7 @@ const App: React.FC = () => {
         {view === 'level_preview' && <LevelWordListView level={selectedLevel as any} words={quizPool} onStartQuiz={() => setView('quiz')} onBack={() => setView('dashboard')} onViewWord={(w) => { setCurrentWord(w); setView('detail'); }} />}
         {view === 'quiz' && <QuizView words={quizPool} onComplete={(r) => { saveQuizResults(r); setView('dashboard'); }} onViewWord={(w, r) => { saveQuizResults(r); setCurrentWord(w); setView('detail'); }} onCancel={() => setView('dashboard')} />}
         {view === 'detail' && currentWord && <WordDetailView word={currentWord} onUpdate={handleUpdateWord} onBack={() => setView('dashboard')} onSelectSynonym={(t) => { setCurrentWord({ id: `syn-${Date.now()}`, term: t, meaning: '解析中...', level: EikenLevel.GRADE_3 }); }} />}
-        {view === 'admin' && <AdminView onImport={handleBatchImport} onCancel={() => setView('dashboard')} />}
+        {view === 'admin' && isAdmin && <AdminView onImport={handleBatchImport} onCancel={() => setView('dashboard')} />}
         {view === 'diagnosis' && <DiagnosisView onCancel={() => setView('dashboard')} />}
       </main>
     </div>
