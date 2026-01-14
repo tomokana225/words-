@@ -28,25 +28,26 @@ let adminEmail: string = "";
 
 export const isFirebaseReady = () => !!app;
 
-// アプリ起動時に呼び出す初期化関数
 export const initializeFirebase = async () => {
   try {
     const response = await fetch('/api/config');
-    if (!response.ok) throw new Error("Failed to fetch config");
+    if (!response.ok) throw new Error("Config endpoint failed");
     const config = await response.json();
     
-    if (config.apiKey) {
+    // config.apiKeyが存在する場合のみFirebaseを初期化
+    if (config.apiKey && config.projectId) {
       app = initializeApp(config);
       db = getFirestore(app);
       auth = getAuth(app);
       provider = new GoogleAuthProvider();
-      adminEmail = config.adminEmail;
-      console.log("✅ Firebase Dynamic Initialization Success (Cloudflare Secrets)");
+      adminEmail = config.adminEmail || "";
+      console.log("✅ Firebase connected via Cloudflare Secrets.");
       return true;
     }
+    console.warn("⚠️ Firebase configuration keys are empty. Falling back to Mock Mode.");
     return false;
   } catch (error) {
-    console.warn("⚠️ Firebase fallback to Mock Mode:", error);
+    console.error("❌ Firebase Initialization Error:", error);
     return false;
   }
 };
@@ -66,11 +67,22 @@ export const loginWithGoogle = async () => {
       const result = await signInWithPopup(auth, provider);
       return result.user;
     } catch (error: any) {
-      console.error("Google Auth Error:", error);
-      alert("ログインに失敗しました。");
+      console.error("Firebase Auth Error:", error);
+      
+      if (error.code === 'auth/unauthorized-domain') {
+        const domain = window.location.hostname;
+        alert(
+          `【重要】ドメイン未承認エラー\n\nFirebaseコンソールの [Authentication] > [設定] > [承認済みドメイン] に「${domain}」を追加してください。\n\n現在の設定ではログインできません。`
+        );
+      } else if (error.code === 'auth/popup-blocked') {
+        alert("ポップアップがブロックされました。ブラウザの設定で許可してください。");
+      } else {
+        alert(`ログイン失敗: ${error.message}`);
+      }
       return null;
     }
   } else {
+    // Firebaseが未設定の場合はゲストとして振る舞う
     localStorage.setItem('eiken_mock_user', JSON.stringify(MOCK_USER));
     window.location.reload();
     return MOCK_USER;
@@ -79,7 +91,11 @@ export const loginWithGoogle = async () => {
 
 export const logout = async () => {
   if (auth) {
-    await signOut(auth);
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.error("SignOut Error", e);
+    }
   }
   localStorage.removeItem('eiken_mock_user');
   window.location.reload();

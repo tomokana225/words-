@@ -4,12 +4,13 @@ import { Word, EikenLevel } from '../types';
 
 interface DashboardProps {
   words: Word[];
+  isAdmin: boolean;
   onSelectLevel: (level: EikenLevel | 'ALL' | 'REVIEW' | 'WEAK') => void;
   onViewWord: (word: Word) => void;
   onQuickAdd: (term: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord, onQuickAdd }) => {
+const Dashboard: React.FC<DashboardProps> = ({ words, isAdmin, onSelectLevel, onViewWord, onQuickAdd }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'mastered' | 'weak' | 'review'>('all');
 
@@ -51,7 +52,7 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord,
     }
   };
 
-  const isNewWord = searchQuery.length > 2 && !words.some(w => w.term.toLowerCase() === searchQuery.toLowerCase());
+  const isNewWord = isAdmin && searchQuery.length > 2 && !words.some(w => w.term.toLowerCase() === searchQuery.toLowerCase());
 
   return (
     <div className="space-y-12 animate-in slide-in-from-bottom-8 duration-700 pb-10">
@@ -102,7 +103,7 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord,
         <div className="flex justify-between items-end mb-8 px-2">
           <div>
             <h3 className="text-3xl font-black text-slate-800 tracking-tighter">英検レベル別</h3>
-            <p className="text-slate-400 font-bold mt-1">各レベルの進捗状況</p>
+            <p className="text-slate-400 font-bold mt-1">学習進捗</p>
           </div>
         </div>
         
@@ -168,18 +169,19 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord,
           </div>
         </div>
 
-        {isNewWord && (
+        {/* 管理者のみ表示されるクイック追加セクション */}
+        {isAdmin && isNewWord && (
           <div className="mb-8 p-6 bg-indigo-600 rounded-[2rem] text-white flex flex-col md:flex-row items-center justify-between gap-6 animate-in zoom-in-95 shadow-xl shadow-indigo-100">
             <div className="flex items-center gap-4">
                <span className="text-3xl">✨</span>
                <div>
-                 <p className="font-black text-lg">"{searchQuery}" をAIで解析して追加しますか？</p>
-                 <p className="text-xs font-bold text-indigo-100 opacity-80">語源、画像、例文をその場で生成します。</p>
+                 <p className="font-black text-lg">管理者機能: "{searchQuery}" をAI解析してライブラリに追加しますか？</p>
+                 <p className="text-xs font-bold text-indigo-100 opacity-80">語源、画像、例文を自動生成します。</p>
                </div>
             </div>
             <button 
               onClick={() => onQuickAdd(searchQuery)}
-              className="px-8 py-3 bg-white text-indigo-600 rounded-full font-black hover:scale-105 active:scale-95 transition shadow-lg"
+              className="px-8 py-3 bg-white text-indigo-600 rounded-full font-black hover:scale-105 active:scale-95 transition shadow-lg shrink-0"
             >
               AI解析を実行
             </button>
@@ -223,6 +225,7 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord,
           {filteredWords.length === 0 && !isNewWord && (
             <div className="col-span-full text-center py-20">
               <h4 className="text-xl font-black text-slate-300">単語が見つかりませんでした</h4>
+              <p className="text-slate-200 font-bold mt-2">ログインして学習を開始しましょう</p>
             </div>
           )}
         </div>
