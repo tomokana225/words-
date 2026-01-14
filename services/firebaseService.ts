@@ -103,22 +103,25 @@ export const saveUserWordProgress = async (userId: string, word: Word) => {
   if (!db) return;
   try {
     const ref = doc(db, "users", userId, "progress", word.term.toLowerCase());
-    await setDoc(ref, {
-      term: word.term,
-      isMastered: word.isMastered || false,
-      streak: word.streak || 0,
-      nextReviewDate: word.nextReviewDate || Date.now(),
-      difficultyScore: word.difficultyScore || 0,
+    // 意味、例文、成り立ちなどの詳細情報もすべて保存するように拡張
+    const dataToSave = {
+      ...word,
       lastUpdated: Date.now()
-    }, { merge: true });
-  } catch {}
+    };
+    await setDoc(ref, dataToSave, { merge: true });
+  } catch (error) {
+    console.error("Firebase Save Error:", error);
+  }
 };
 
-export const fetchUserWords = async (userId: string): Promise<Partial<Word>[]> => {
+export const fetchUserWords = async (userId: string): Promise<Word[]> => {
   if (!db) return [];
   try {
     const colRef = collection(db, "users", userId, "progress");
     const snap = await getDocs(colRef);
-    return snap.docs.map(d => d.data() as Partial<Word>);
-  } catch { return []; }
+    return snap.docs.map(d => d.data() as Word);
+  } catch (error) {
+    console.error("Firebase Fetch Error:", error);
+    return [];
+  }
 };

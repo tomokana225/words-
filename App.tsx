@@ -30,41 +30,44 @@ const App: React.FC = () => {
   const [words, setWords] = useState<Word[]>([]);
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<EikenLevel | 'ALL' | 'REVIEW' | 'WEAK'>('ALL');
+  const [isSyncing, setIsSyncing] = useState(false);
 
+  // Load words and sync with Firebase on start/login
   useEffect(() => {
+    // 1. まず LocalStorage から読み込む（即時表示用）
     const local = localStorage.getItem('eiken_ai_words');
     if (local) setWords(JSON.parse(local));
     else setWords(INITIAL_WORDS);
 
+    // 2. 認証状態の変化を監視
     const unsubscribe = onAuthChange(async (fbUser) => {
       setUser(fbUser);
       if (fbUser) {
-        const cloudWords = await fetchUserWords(fbUser.uid);
-        if (cloudWords.length > 0) {
-          setWords(prev => {
-            const merged = [...prev];
-            cloudWords.forEach(cw => {
-              const idx = merged.findIndex(w => w.term.toLowerCase() === cw.term?.toLowerCase());
-              if (idx > -1) {
-                merged[idx] = { ...merged[idx], ...cw };
-              } else if (cw.term) {
-                merged.push({ 
-                  id: `db-${Date.now()}-${Math.random()}`, 
-                  term: cw.term, 
-                  meaning: cw.meaning || 'Syncing...', 
-                  level: cw.level || EikenLevel.GRADE_3, 
-                  ...cw 
-                });
-              }
+        setIsSyncing(true);
+        try {
+          // Firebaseからユーザーの単語データを全件取得
+          const cloudWords = await fetchUserWords(fbUser.uid);
+          if (cloudWords.length > 0) {
+            setWords(prev => {
+              // サーバーのデータを優先してマージ
+              const wordMap = new Map<string, Word>();
+              // ローカルのデータを先に入れ、サーバーデータで上書きする
+              prev.forEach(w => wordMap.set(w.term.toLowerCase(), w));
+              cloudWords.forEach(cw => wordMap.set(cw.term.toLowerCase(), cw));
+              return Array.from(wordMap.values());
             });
-            return merged;
-          });
+          }
+        } catch (error) {
+          console.error("Sync error:", error);
+        } finally {
+          setIsSyncing(false);
         }
       }
     });
     return () => unsubscribe();
   }, []);
 
+  // 保存（LocalStorage）
   useEffect(() => {
     if (words.length > 0) localStorage.setItem('eiken_ai_words', JSON.stringify(words));
   }, [words]);
@@ -86,7 +89,6 @@ const App: React.FC = () => {
   }, [user]);
 
   const handleBatchImport = async (newWords: Word[]) => {
-    // ローカル状態を即座に更新（UI応答性のため）
     setWords(prev => {
       const currentMap = new Map(prev.map(w => [w.term.toLowerCase(), w]));
       newWords.forEach(nw => {
@@ -95,9 +97,8 @@ const App: React.FC = () => {
       return Array.from(currentMap.values());
     });
 
-    // Firebaseへ非同期保存
     if (user) {
-      // 負荷軽減のため順番に処理（必要に応じてPromise.all）
+      // Firebaseへ非同期保存
       for (const w of newWords) {
         await saveUserWordProgress(user.uid, w);
         await saveWordToDB(w);
@@ -175,6 +176,12 @@ const App: React.FC = () => {
             ))}
           </nav>
           <div className="pt-8 border-t border-slate-100">
+             {isSyncing && (
+               <div className="mb-4 px-4 py-2 bg-indigo-50 text-indigo-500 text-[10px] font-black rounded-lg animate-pulse flex items-center gap-2">
+                 <div className="w-2 h-2 bg-indigo-500 rounded-full animate-ping"></div>
+                 クラウド同期中...
+               </div>
+             )}
              {user ? (
                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50">
                  <img src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} className="w-10 h-10 rounded-xl shadow-sm" alt="User"/>
