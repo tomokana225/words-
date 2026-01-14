@@ -7,6 +7,8 @@ import {
   setDoc, 
   collection, 
   getDocs,
+  query,
+  limit,
   Firestore
 } from "firebase/firestore";
 import { 
@@ -34,7 +36,6 @@ export const initializeFirebase = async () => {
     if (!response.ok) throw new Error("Config endpoint failed");
     const config = await response.json();
     
-    // config.apiKeyが存在する場合のみFirebaseを初期化
     if (config.apiKey && config.projectId) {
       app = initializeApp(config);
       db = getFirestore(app);
@@ -68,21 +69,13 @@ export const loginWithGoogle = async () => {
       return result.user;
     } catch (error: any) {
       console.error("Firebase Auth Error:", error);
-      
       if (error.code === 'auth/unauthorized-domain') {
         const domain = window.location.hostname;
-        alert(
-          `【重要】ドメイン未承認エラー\n\nFirebaseコンソールの [Authentication] > [設定] > [承認済みドメイン] に「${domain}」を追加してください。\n\n現在の設定ではログインできません。`
-        );
-      } else if (error.code === 'auth/popup-blocked') {
-        alert("ポップアップがブロックされました。ブラウザの設定で許可してください。");
-      } else {
-        alert(`ログイン失敗: ${error.message}`);
+        alert(`ドメイン未承認: Firebaseコンソールで ${domain} を許可してください。`);
       }
       return null;
     }
   } else {
-    // Firebaseが未設定の場合はゲストとして振る舞う
     localStorage.setItem('eiken_mock_user', JSON.stringify(MOCK_USER));
     window.location.reload();
     return MOCK_USER;
@@ -91,11 +84,7 @@ export const loginWithGoogle = async () => {
 
 export const logout = async () => {
   if (auth) {
-    try {
-      await signOut(auth);
-    } catch (e) {
-      console.error("SignOut Error", e);
-    }
+    await signOut(auth);
   }
   localStorage.removeItem('eiken_mock_user');
   window.location.reload();
@@ -108,6 +97,21 @@ export const onAuthChange = (callback: (user: User | null) => void) => {
     const saved = localStorage.getItem('eiken_mock_user');
     callback(saved ? JSON.parse(saved) : null);
     return () => {};
+  }
+};
+
+// 全ユーザー共有の単語リストを取得
+export const fetchGlobalWords = async (): Promise<Word[]> => {
+  if (!db) return [];
+  try {
+    const colRef = collection(db, "global_vocabulary");
+    // パフォーマンスのため一旦100件制限（必要に応じて調整）
+    const q = query(colRef, limit(200));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => d.data() as Word);
+  } catch (error) {
+    console.error("Global Words Fetch Error:", error);
+    return [];
   }
 };
 

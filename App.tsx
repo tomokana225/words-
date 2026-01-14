@@ -13,6 +13,7 @@ import {
   loginWithGoogle, 
   logout, 
   fetchUserWords, 
+  fetchGlobalWords,
   saveUserWordProgress,
   saveWordToDB,
   getAdminEmail,
@@ -29,7 +30,6 @@ const App: React.FC = () => {
   const [selectedLevel, setSelectedLevel] = useState<EikenLevel | 'ALL' | 'REVIEW' | 'WEAK'>('ALL');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // 管理者判定 (Cloudflare Secret の ADMIN_EMAIL と比較)
   const isAdmin = useMemo(() => {
     const adminEmail = getAdminEmail();
     return user?.email && adminEmail && user.email === adminEmail;
@@ -37,26 +37,31 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // 1. Firebase初期化 (Cloudflare Secretsフェッチ)
       await initializeFirebase();
       
-      // 2. 認証状態の監視
       const unsubscribe = onAuthChange(async (fbUser) => {
         setUser(fbUser);
-        if (fbUser) {
-          setIsSyncing(true);
-          try {
-            // クラウドからのみデータを取得 (LocalStorageは使用しない)
+        setIsSyncing(true);
+        try {
+          if (fbUser) {
+            // ログイン済み：ユーザー専用の進捗リストを取得
             const cloudWords = await fetchUserWords(fbUser.uid);
-            setWords(cloudWords);
-          } catch (e) {
-            console.error("Cloud Sync Error:", e);
-          } finally {
-            setIsSyncing(false);
+            // もしユーザーリストが空なら、便宜上グローバルリストも混ぜて表示するなどの考慮が可能
+            if (cloudWords.length > 0) {
+              setWords(cloudWords);
+            } else {
+              const globals = await fetchGlobalWords();
+              setWords(globals);
+            }
+          } else {
+            // 未ログイン：共有単語リストを取得して表示
+            const globals = await fetchGlobalWords();
+            setWords(globals);
           }
-        } else {
-          // 未ログイン時は単語リストを空にする
-          setWords([]);
+        } catch (e) {
+          console.error("Sync Error:", e);
+        } finally {
+          setIsSyncing(false);
         }
         setIsAppReady(true);
       });
@@ -67,8 +72,6 @@ const App: React.FC = () => {
   }, []);
 
   const handleUpdateWord = useCallback(async (updated: Word) => {
-    // 管理者でない場合は単語情報の更新（マスターデータの上書き）を制限する運用も可能ですが、
-    // ここでは個人の進捗保存として機能させます。
     setWords(prev => {
       const idx = prev.findIndex(w => w.term.toLowerCase() === updated.term.toLowerCase());
       if (idx > -1) {
@@ -81,7 +84,6 @@ const App: React.FC = () => {
     
     if (user) {
       await saveUserWordProgress(user.uid, updated);
-      // グローバルDBへの保存は管理者のみ
       if (isAdmin) await saveWordToDB(updated);
     }
   }, [user, isAdmin]);
@@ -107,8 +109,6 @@ const App: React.FC = () => {
   }, [user, isAdmin]);
 
   const saveQuizResults = useCallback(async (results: QuizResult) => {
-    if (!user) return;
-
     const updatedBatch: Word[] = [];
     setWords(prev => {
       const nextWords = [...prev];
@@ -138,8 +138,11 @@ const App: React.FC = () => {
       return nextWords;
     });
 
-    for (const w of updatedBatch) {
-      await saveUserWordProgress(user.uid, w);
+    // ログインしている場合のみクラウドへ保存
+    if (user) {
+      for (const w of updatedBatch) {
+        await saveUserWordProgress(user.uid, w);
+      }
     }
   }, [user]);
 
@@ -156,7 +159,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8 text-center">
         <div className="w-20 h-20 border-8 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-2xl mb-10"></div>
         <h2 className="font-black text-slate-800 text-3xl tracking-tight mb-2">EikenMaster AI</h2>
-        <p className="text-slate-400 font-bold">同期を確立しています...</p>
+        <p className="text-slate-400 font-bold">ライブラリを読み込んでいます...</p>
       </div>
     );
   }
@@ -175,7 +178,7 @@ const App: React.FC = () => {
             {[
               { id: 'dashboard', label: 'ホーム', icon: <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/> },
               { id: 'diagnosis', label: '単語力診断', icon: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/> },
-              ...(isAdmin ? [{ id: 'admin', label: '管理者：一括登録', icon: <path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/> }] : []),
+              ...(isAdmin ? [{ id: 'admin', label: '管理者モード', icon: <path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/> }] : []),
             ].map(item => (
               <button 
                 key={item.id}
@@ -188,19 +191,16 @@ const App: React.FC = () => {
             ))}
           </nav>
           <div className="pt-8 border-t border-slate-100">
-             {!isFirebaseReady() ? (
+             {!user && (
                <div className="mb-4 px-4 py-3 bg-amber-50 text-amber-600 text-[11px] font-black rounded-xl border border-amber-100 leading-tight">
-                 ⚠️ 未設定モード
-               </div>
-             ) : (
-               <div className="mb-4 px-4 py-3 bg-emerald-50 text-emerald-600 text-[11px] font-black rounded-xl border border-emerald-100 leading-tight">
-                 ✅ Firebase同期中
+                 💡 ゲスト閲覧中<br/>
+                 <span className="font-normal opacity-80">ログインすると進捗を保存できます</span>
                </div>
              )}
              {isSyncing && (
                <div className="mb-4 px-4 py-2 bg-indigo-50 text-indigo-500 text-[10px] font-black rounded-lg animate-pulse flex items-center gap-2">
                  <div className="w-2 h-2 bg-indigo-500 rounded-full animate-ping"></div>
-                 更新中...
+                 読込中...
                </div>
              )}
              {user ? (
