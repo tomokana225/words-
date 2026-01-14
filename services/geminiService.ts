@@ -2,7 +2,6 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Word } from "../types";
 
 // Always initialize GoogleGenAI with a named parameter using process.env.API_KEY.
-// Cloudflareで登録した GEMINI_API_KEY を API_KEY という名前に変更してください。
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Audio Helper Functions
@@ -62,7 +61,12 @@ export const getWordDetails = async (term: string): Promise<Partial<Word>> => {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `英単語「${term}」の情報をJSONで提供してください。語源、例文、類義語を日本語で。`,
+      contents: `英単語「${term}」の詳細情報をJSONで提供してください。
+      - phonetic: 発音記号
+      - etymology: 語源、接頭辞・接尾辞の解説を含む成り立ち（日本語で詳しく）
+      - synonyms: 類義語の配列
+      - exampleSentence: 英語の例文
+      - exampleSentenceJapanese: 例文の和訳`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -73,7 +77,8 @@ export const getWordDetails = async (term: string): Promise<Partial<Word>> => {
             synonyms: { type: Type.ARRAY, items: { type: Type.STRING } },
             exampleSentence: { type: Type.STRING },
             exampleSentenceJapanese: { type: Type.STRING }
-          }
+          },
+          required: ["phonetic", "etymology", "synonyms", "exampleSentence", "exampleSentenceJapanese"]
         }
       }
     });
@@ -89,7 +94,7 @@ export const generateCoreImage = async (term: string, meaning: string): Promise<
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [{ text: `${term} (${meaning}) の意味を象徴する、シンプルで教育的なイラスト。背景は白。` }]
+        parts: [{ text: `A simple, clean, educational illustration representing the core concept of the word "${term}" (${meaning}). Style: minimalistic icon, 3D render feel, vibrant colors, white background, no text.` }]
       }
     });
     const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
@@ -104,7 +109,7 @@ export const getDiagnosticQuiz = async (level: string): Promise<any[]> => {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `英検${level}の頻出単語10個をJSON形式で生成してください。`,
+      contents: `英検${level}レベルの重要単語10個をリストアップし、それぞれの意味をJSON形式で生成してください。`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -114,7 +119,8 @@ export const getDiagnosticQuiz = async (level: string): Promise<any[]> => {
             properties: {
               term: { type: Type.STRING },
               meaning: { type: Type.STRING }
-            }
+            },
+            required: ["term", "meaning"]
           }
         }
       }

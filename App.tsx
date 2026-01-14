@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { EikenLevel, Word, QuizResult } from './types';
 import Dashboard from './components/Dashboard';
@@ -56,6 +55,25 @@ const App: React.FC = () => {
     });
     return () => unsubscribe();
   }, []);
+
+  // 定期的な通知チェック (忘却曲線に基づく復習リマインド)
+  useEffect(() => {
+    const checkReviews = () => {
+      if (Notification.permission === 'granted') {
+        const now = Date.now();
+        const dueWords = words.filter(w => w.nextReviewDate && w.nextReviewDate <= now && !w.isMastered);
+        if (dueWords.length > 0) {
+          new Notification('英単語復習の時間です！', {
+            body: `${dueWords.length} 個の単語が復習を待っています。`,
+            icon: '/favicon.ico'
+          });
+        }
+      }
+    };
+
+    const interval = setInterval(checkReviews, 3600000); // 1時間ごとにチェック
+    return () => clearInterval(interval);
+  }, [words]);
 
   useEffect(() => {
     if (words.length > 0) localStorage.setItem('eiken_master_words', JSON.stringify(words));
@@ -115,6 +133,15 @@ const App: React.FC = () => {
 
   const isQuizView = view === 'quiz';
 
+  const requestNotificationPermission = async () => {
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        alert('通知が有効になりました！復習の時間にお知らせします。');
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 relative overflow-hidden">
       {/* Background Ornaments */}
@@ -145,6 +172,10 @@ const App: React.FC = () => {
             <button onClick={() => setView('admin')} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black transition ${view === 'admin' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600'}`}>
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/></svg>
               <span>単語追加</span>
+            </button>
+            <button onClick={requestNotificationPermission} className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+              <span>通知を有効化</span>
             </button>
           </nav>
 
@@ -193,8 +224,7 @@ const App: React.FC = () => {
           {view === 'dashboard' && <Dashboard words={words} onSelectLevel={(lvl) => { setSelectedLevel(lvl); setView('level_preview'); }} onViewWord={(w) => { setCurrentWord(w); setView('detail'); }} />}
           {view === 'level_preview' && <LevelWordListView level={selectedLevel} words={quizPool} onStartQuiz={() => setView('quiz')} onBack={() => setView('dashboard')} onViewWord={(w) => { setCurrentWord(w); setView('detail'); }} />}
           {view === 'quiz' && <QuizView words={quizPool} onComplete={(r) => { saveQuizResults(r); setView('dashboard'); }} onViewWord={(w, r) => { saveQuizResults(r); setCurrentWord(w); setView('detail'); }} onCancel={() => setView('dashboard')} />}
-          {/* Fixed line below: Use selectedLevel comparison to determine back destination instead of impossible current view comparison */}
-          {view === 'detail' && currentWord && <WordDetailView word={currentWord} onUpdate={handleUpdateWord} onBack={() => setView(selectedLevel !== 'ALL' ? 'level_preview' : 'dashboard')} onSelectSynonym={(t) => { const e = words.find(w => w.term.toLowerCase() === t.toLowerCase()); setCurrentWord(e || { id: `temp-${Date.now()}`, term: t, meaning: '解析中...', level: EikenLevel.GRADE_3 }); }} />}
+          {view === 'detail' && currentWord && <WordDetailView word={currentWord} onUpdate={handleUpdateWord} onBack={() => setView(selectedLevel !== 'ALL' && selectedLevel !== 'REVIEW' ? 'level_preview' : 'dashboard')} onSelectSynonym={(t) => { const e = words.find(w => w.term.toLowerCase() === t.toLowerCase()); setCurrentWord(e || { id: `temp-${Date.now()}`, term: t, meaning: '解析中...', level: EikenLevel.GRADE_3 }); }} />}
           {view === 'import' && <ImportView onImport={(w) => { setWords(prev => [...prev, ...w]); setView('dashboard'); }} onCancel={() => setView('dashboard')} />}
           {view === 'diagnosis' && <DiagnosisView onCancel={() => setView('dashboard')} />}
           {view === 'admin' && <AdminView onImport={(w) => { setWords(prev => [...prev, ...w]); setView('dashboard'); }} onCancel={() => setView('dashboard')} />}
