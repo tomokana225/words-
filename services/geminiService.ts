@@ -61,11 +61,11 @@ export const playPronunciation = async (text: string) => {
 export const getWordDetails = async (term: string): Promise<Partial<Word>> => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `英単語「${term}」を深く分析してください。
+      model: "gemini-3-pro-preview",
+      contents: `英単語「${term}」を専門的に分析してください。
       以下の項目を日本語で提供してください：
       - phonetic: 発音記号
-      - etymology: 接頭辞、接尾辞、語根に分解した単語の成り立ちと、覚え方のコツ（コアイメージ）。
+      - etymology: 接頭辞(prefix)、接尾辞(suffix)、語根(root)に分解した単語の成り立ちを箇条書きで。また、覚え方のコツ（コアイメージ）を記述。
       - synonyms: 類義語（3つ程度）
       - exampleSentence: その単語の自然な英語例文
       - exampleSentenceJapanese: 例文の和訳`,
@@ -96,7 +96,7 @@ export const generateCoreImage = async (term: string, meaning: string): Promise<
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [{ text: `A vibrant, high-quality 3D educational illustration depicting the core visual concept of the word "${term}" (${meaning}). Use soft lighting, clear symbolism, minimalistic background, and bright professional colors. No text in the image.` }]
+        parts: [{ text: `A clear, vivid 3D educational icon illustration for the English word "${term}" (${meaning}). High quality, minimalist, bright professional colors, soft shadows, white background. Visualizes the core concept. No text.` }]
       }
     });
     const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
@@ -111,7 +111,7 @@ export const getDiagnosticQuiz = async (level: string): Promise<any[]> => {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `英検${level}レベルの合格に必須な重要単語10個をリストアップし、それぞれの意味をJSON形式で生成してください。`,
+      contents: `英検${level}レベルの合格に必須な重要単語5個をリストアップし、4択クイズ形式（問題・選択肢4つ・正解のインデックス0-3）でJSON形式で生成してください。`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -120,9 +120,11 @@ export const getDiagnosticQuiz = async (level: string): Promise<any[]> => {
             type: Type.OBJECT,
             properties: {
               term: { type: Type.STRING },
-              meaning: { type: Type.STRING }
+              meaning: { type: Type.STRING },
+              options: { type: Type.ARRAY, items: { type: Type.STRING } },
+              correctIndex: { type: Type.INTEGER }
             },
-            required: ["term", "meaning"]
+            required: ["term", "meaning", "options", "correctIndex"]
           }
         }
       }

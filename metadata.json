@@ -1,8 +1,5 @@
 {
   "name": "EikenMaster AI",
-  "description": "A comprehensive English learning application featuring AI-powered word analysis, spaced repetition, and Eiken-level progress tracking.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ]
+  "description": "英検3級から1級まで対応。AIによる語源分析、コアイメージ生成、忘却曲線に基づいた学習管理を備えた究極の英単語アプリ。",
+  "requestFramePermissions": []
 }
