@@ -13,11 +13,12 @@ export interface Word {
   meaning: string;
   level: EikenLevel;
   phonetic?: string;
-  etymology?: string;
+  etymology?: string; // 単語の成り立ち、接頭辞・接尾辞
+  coreImageDescription?: string; // AIへのコアイメージ指示用
   synonyms?: string[];
   exampleSentence?: string;
   exampleSentenceJapanese?: string;
-  imageUrl?: string;
+  imageUrl?: string; // AI生成画像
   isMastered?: boolean;
   difficultyScore?: number;
   nextReviewDate?: number; // 次回復習日 (Timestamp)

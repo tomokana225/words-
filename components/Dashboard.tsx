@@ -4,25 +4,26 @@ import { Word, EikenLevel } from '../types';
 
 interface DashboardProps {
   words: Word[];
-  onSelectLevel: (level: EikenLevel | 'ALL' | 'REVIEW') => void;
+  onSelectLevel: (level: EikenLevel | 'ALL' | 'REVIEW' | 'WEAK') => void;
   onViewWord: (word: Word) => void;
+  onQuickAdd: (term: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord }) => {
+const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord, onQuickAdd }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'mastered' | 'weak' | 'review'>('all');
 
   const now = Date.now();
   const reviewCount = words.filter(w => w.nextReviewDate && w.nextReviewDate <= now && !w.isMastered).length;
   const masteredCount = words.filter(w => w.isMastered).length;
-  const weakCount = words.filter(w => !w.isMastered && (w.difficultyScore || 0) > 0).length;
+  const weakCount = words.filter(w => !w.isMastered && (w.difficultyScore || 0) > 20).length;
   
   const levels = Object.values(EikenLevel);
 
   const filteredWords = useMemo(() => {
     let list = words;
     if (filter === 'mastered') list = words.filter(w => w.isMastered);
-    if (filter === 'weak') list = words.filter(w => !w.isMastered && (w.difficultyScore || 0) > 0);
+    if (filter === 'weak') list = words.filter(w => !w.isMastered && (w.difficultyScore || 0) > 20);
     if (filter === 'review') list = words.filter(w => w.nextReviewDate && w.nextReviewDate <= now && !w.isMastered);
     
     if (!searchQuery.trim()) return list;
@@ -49,6 +50,8 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord 
       default: return 'bg-slate-500';
     }
   };
+
+  const isNewWord = searchQuery.length > 2 && !words.some(w => w.term.toLowerCase() === searchQuery.toLowerCase());
 
   return (
     <div className="space-y-12 animate-in slide-in-from-bottom-8 duration-700 pb-10">
@@ -84,11 +87,11 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord 
           <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">暗記完了</span>
           <span className="text-3xl font-black text-emerald-600">{masteredCount}</span>
         </div>
-        <div className="bg-rose-50 p-6 rounded-[2rem] shadow-sm border border-rose-100 flex flex-col items-center">
+        <div className="bg-rose-50 p-6 rounded-[2rem] shadow-sm border border-rose-100 flex flex-col items-center cursor-pointer hover:bg-rose-100 transition" onClick={() => onSelectLevel('WEAK')}>
           <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2">苦手単語</span>
           <span className="text-3xl font-black text-rose-600">{weakCount}</span>
         </div>
-        <div className="bg-indigo-50 p-6 rounded-[2rem] shadow-sm border border-indigo-100 flex flex-col items-center">
+        <div className="bg-indigo-50 p-6 rounded-[2rem] shadow-sm border border-indigo-100 flex flex-col items-center cursor-pointer hover:bg-indigo-100 transition" onClick={() => onSelectLevel('REVIEW')}>
           <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">要復習</span>
           <span className="text-3xl font-black text-indigo-600">{reviewCount}</span>
         </div>
@@ -157,13 +160,31 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord 
             </div>
             <input 
               type="text"
-              placeholder="検索..."
+              placeholder="単語を検索..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-16 pr-8 py-5 bg-white border border-slate-100 rounded-[2rem] text-sm md:text-base font-bold focus:ring-8 focus:ring-indigo-500/5 outline-none transition-all shadow-inner"
             />
           </div>
         </div>
+
+        {isNewWord && (
+          <div className="mb-8 p-6 bg-indigo-600 rounded-[2rem] text-white flex flex-col md:flex-row items-center justify-between gap-6 animate-in zoom-in-95 shadow-xl shadow-indigo-100">
+            <div className="flex items-center gap-4">
+               <span className="text-3xl">✨</span>
+               <div>
+                 <p className="font-black text-lg">"{searchQuery}" をAIで解析して追加しますか？</p>
+                 <p className="text-xs font-bold text-indigo-100 opacity-80">語源、画像、例文をその場で生成します。</p>
+               </div>
+            </div>
+            <button 
+              onClick={() => onQuickAdd(searchQuery)}
+              className="px-8 py-3 bg-white text-indigo-600 rounded-full font-black hover:scale-105 active:scale-95 transition shadow-lg"
+            >
+              AI解析を実行
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
           {filteredWords.map(word => (
@@ -199,7 +220,7 @@ const Dashboard: React.FC<DashboardProps> = ({ words, onSelectLevel, onViewWord 
               </div>
             </div>
           ))}
-          {filteredWords.length === 0 && (
+          {filteredWords.length === 0 && !isNewWord && (
             <div className="col-span-full text-center py-20">
               <h4 className="text-xl font-black text-slate-300">単語が見つかりませんでした</h4>
             </div>
