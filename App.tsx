@@ -13,7 +13,8 @@ import {
   logout, 
   fetchUserWords, 
   saveUserWordProgress,
-  saveWordToDB 
+  saveWordToDB,
+  isFirebaseEnabled
 } from './services/firebaseService';
 import { User } from 'firebase/auth';
 
@@ -31,17 +32,25 @@ const App: React.FC = () => {
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<EikenLevel | 'ALL' | 'REVIEW' | 'WEAK'>('ALL');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
 
   // 管理者かどうかを判定
   const isAdmin = useMemo(() => {
     return user?.email === process.env.ADMIN_EMAIL;
   }, [user]);
 
+  // 1. 初回起動時の読み込み
   useEffect(() => {
     const local = localStorage.getItem('eiken_ai_words');
-    if (local) setWords(JSON.parse(local));
-    else setWords(INITIAL_WORDS);
+    if (local) {
+      setWords(JSON.parse(local));
+    } else {
+      setWords(INITIAL_WORDS);
+    }
+  }, []);
 
+  // 2. 認証とFirebase同期
+  useEffect(() => {
     const unsubscribe = onAuthChange(async (fbUser) => {
       setUser(fbUser);
       if (fbUser) {
@@ -51,8 +60,14 @@ const App: React.FC = () => {
           if (cloudWords.length > 0) {
             setWords(prev => {
               const wordMap = new Map<string, Word>();
-              prev.forEach(w => wordMap.set(w.term.toLowerCase(), w));
+              // クラウドデータを優先的にマージ
               cloudWords.forEach(cw => wordMap.set(cw.term.toLowerCase(), cw));
+              // ローカルにしかない単語があれば追加
+              prev.forEach(w => {
+                if (!wordMap.has(w.term.toLowerCase())) {
+                  wordMap.set(w.term.toLowerCase(), w);
+                }
+              });
               return Array.from(wordMap.values());
             });
           }
@@ -62,13 +77,17 @@ const App: React.FC = () => {
           setIsSyncing(false);
         }
       }
+      setIsInitialLoadDone(true);
     });
     return () => unsubscribe();
   }, []);
 
+  // 3. データの保存 (LocalStorage)
   useEffect(() => {
-    if (words.length > 0) localStorage.setItem('eiken_ai_words', JSON.stringify(words));
-  }, [words]);
+    if (isInitialLoadDone && words.length > 0) {
+      localStorage.setItem('eiken_ai_words', JSON.stringify(words));
+    }
+  }, [words, isInitialLoadDone]);
 
   const handleUpdateWord = useCallback(async (updated: Word) => {
     setWords(prev => {
@@ -80,12 +99,10 @@ const App: React.FC = () => {
       }
       return [...prev, updated];
     });
+    
     if (user) {
       await saveUserWordProgress(user.uid, updated);
-      // 管理者の場合は常にグローバルDBも更新
-      if (isAdmin) {
-        await saveWordToDB(updated);
-      }
+      if (isAdmin) await saveWordToDB(updated);
     }
   }, [user, isAdmin]);
 
@@ -101,10 +118,7 @@ const App: React.FC = () => {
     if (user) {
       for (const w of newWords) {
         await saveUserWordProgress(user.uid, w);
-        // 管理者としてインポートした場合はグローバル辞書に直接書き込む
-        if (isAdmin) {
-          await saveWordToDB(w);
-        }
+        if (isAdmin) await saveWordToDB(w);
       }
     }
     setView('dashboard');
@@ -179,6 +193,11 @@ const App: React.FC = () => {
             ))}
           </nav>
           <div className="pt-8 border-t border-slate-100">
+             {!isFirebaseEnabled && (
+               <div className="mb-4 px-4 py-2 bg-amber-50 text-amber-600 text-[10px] font-black rounded-lg flex items-center gap-2 border border-amber-100">
+                 ⚠️ オフライン(モック)モード
+               </div>
+             )}
              {isSyncing && (
                <div className="mb-4 px-4 py-2 bg-indigo-50 text-indigo-500 text-[10px] font-black rounded-lg animate-pulse flex items-center gap-2">
                  <div className="w-2 h-2 bg-indigo-500 rounded-full animate-ping"></div>
@@ -197,7 +216,7 @@ const App: React.FC = () => {
                  </div>
                </div>
              ) : (
-               <button onClick={() => loginWithGoogle()} className="w-full py-4 gradient-primary text-white rounded-2xl font-black shadow-lg">Login</button>
+               <button onClick={() => loginWithGoogle()} className="w-full py-4 gradient-primary text-white rounded-2xl font-black shadow-lg bounce-on-click">Login</button>
              )}
           </div>
         </aside>

@@ -27,46 +27,59 @@ const firebaseConfig = {
   appId: process.env.FIREBASE_APP_ID,
 };
 
-// Check if config exists, otherwise use mock (development fallback)
-const isConfigAvailable = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
+// 詳細な初期化チェック
+const missingKeys = Object.entries(firebaseConfig)
+  .filter(([_, value]) => !value)
+  .map(([key]) => key);
+
+export const isFirebaseEnabled = missingKeys.length === 0;
+
+if (!isFirebaseEnabled) {
+  console.warn("⚠️ Firebase configuration is incomplete. App is running in MOCK MODE.");
+  console.warn("Missing keys:", missingKeys);
+}
 
 let db: any = null;
 let auth: any = null;
-const provider = new GoogleAuthProvider();
+let provider: any = null;
 
-if (isConfigAvailable) {
+if (isFirebaseEnabled) {
   try {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     auth = getAuth(app);
+    provider = new GoogleAuthProvider();
   } catch (e) {
-    console.error("Firebase Initialization Error", e);
+    console.error("Firebase Initialization Failed:", e);
   }
 }
 
 const MOCK_USER: any = {
   uid: "guest-id",
-  displayName: "Guest Learner",
+  displayName: "Guest Learner (Mock)",
+  email: "guest@example.com",
   photoURL: "https://api.dicebear.com/7.x/pixel-art/svg?seed=learn"
 };
 
 export const loginWithGoogle = async () => {
-  if (!auth) {
+  if (!isFirebaseEnabled || !auth) {
+    console.log("Mock Login triggered");
     localStorage.setItem('eiken_mock_user', JSON.stringify(MOCK_USER));
-    window.location.reload();
+    window.location.reload(); // モック時はリロードで状態反映
     return MOCK_USER;
   }
   try {
     const result = await signInWithPopup(auth, provider);
     return result.user;
   } catch (error) {
-    console.error("Auth Error", error);
+    console.error("Google Auth Error:", error);
+    alert("ログインに失敗しました。ポップアップがブロックされていないか確認してください。");
     return null;
   }
 };
 
 export const logout = async () => {
-  if (!auth) {
+  if (!isFirebaseEnabled || !auth) {
     localStorage.removeItem('eiken_mock_user');
     window.location.reload();
     return;
@@ -75,7 +88,7 @@ export const logout = async () => {
 };
 
 export const onAuthChange = (callback: (user: User | null) => void) => {
-  if (!auth) {
+  if (!isFirebaseEnabled || !auth) {
     const saved = localStorage.getItem('eiken_mock_user');
     callback(saved ? JSON.parse(saved) : null);
     return () => {};
@@ -103,14 +116,13 @@ export const saveUserWordProgress = async (userId: string, word: Word) => {
   if (!db) return;
   try {
     const ref = doc(db, "users", userId, "progress", word.term.toLowerCase());
-    // 意味、例文、成り立ちなどの詳細情報もすべて保存するように拡張
     const dataToSave = {
       ...word,
       lastUpdated: Date.now()
     };
     await setDoc(ref, dataToSave, { merge: true });
   } catch (error) {
-    console.error("Firebase Save Error:", error);
+    console.error("Cloud Save Error:", error);
   }
 };
 
@@ -119,9 +131,11 @@ export const fetchUserWords = async (userId: string): Promise<Word[]> => {
   try {
     const colRef = collection(db, "users", userId, "progress");
     const snap = await getDocs(colRef);
-    return snap.docs.map(d => d.data() as Word);
+    const result = snap.docs.map(d => d.data() as Word);
+    console.log(`Fetched ${result.length} words from cloud for user ${userId}`);
+    return result;
   } catch (error) {
-    console.error("Firebase Fetch Error:", error);
+    console.error("Cloud Fetch Error:", error);
     return [];
   }
 };
