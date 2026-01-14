@@ -27,7 +27,15 @@ const firebaseConfig = {
   appId: process.env.FIREBASE_APP_ID,
 };
 
-// 必須キーと、Cloudflare上での実際の環境変数名のマッピング
+// 診断用：どの環境変数が注入されているか確認
+console.log("🔍 Checking Environment Variables...");
+const checkVars = {
+  FIREBASE_API_KEY: !!process.env.FIREBASE_API_KEY,
+  FIREBASE_PROJECT_ID: !!process.env.FIREBASE_PROJECT_ID,
+  GEMINI_API_KEY: !!process.env.API_KEY
+};
+console.table(checkVars);
+
 const requiredEnvMapping: Record<string, string> = {
   apiKey: "FIREBASE_API_KEY",
   authDomain: "FIREBASE_AUTH_DOMAIN",
@@ -51,13 +59,14 @@ if (isFirebaseEnabled) {
     db = getFirestore(app);
     auth = getAuth(app);
     provider = new GoogleAuthProvider();
-    console.log("✅ Firebase initialized with Cloudflare Secrets.");
+    console.log("✅ Firebase successfuly initialized with Cloudflare variables.");
   } catch (e) {
     console.error("❌ Firebase Initialization Failed:", e);
   }
 } else {
-  console.warn("⚠️ Firebase configuration is incomplete. Running in MOCK MODE.");
-  console.warn("Please set the following SECRETS in Cloudflare dashboard:", missingEnvVars.join(", "));
+  console.warn("⚠️ Firebase config incomplete. MOCK MODE active.");
+  console.warn("Missing variables:", missingEnvVars.join(", "));
+  console.info("Hint: Make sure these are set in Cloudflare 'Environment variables' (not only Secrets).");
 }
 
 const MOCK_USER: any = {
@@ -75,9 +84,9 @@ export const loginWithGoogle = async () => {
     } catch (error: any) {
       console.error("Google Auth Error:", error);
       if (error.code === 'auth/popup-blocked') {
-        alert("ポップアップがブロックされました。ブラウザの設定で許可してください。");
+        alert("ポップアップがブロックされました。");
       } else {
-        alert("ログインに失敗しました。シークレット設定やFirebaseドメイン制限を確認してください。");
+        alert("ログインエラー: " + (error.message || "不明なエラー"));
       }
       return null;
     }
@@ -132,13 +141,9 @@ export const saveUserWordProgress = async (userId: string, word: Word) => {
   if (!db) return;
   try {
     const ref = doc(db, "users", userId, "progress", word.term.toLowerCase());
-    const dataToSave = {
-      ...word,
-      lastUpdated: Date.now()
-    };
-    await setDoc(ref, dataToSave, { merge: true });
+    await setDoc(ref, { ...word, lastUpdated: Date.now() }, { merge: true });
   } catch (error) {
-    console.error("User Cloud Save Error:", error);
+    console.error("User Progress Save Error:", error);
   }
 };
 
@@ -149,7 +154,7 @@ export const fetchUserWords = async (userId: string): Promise<Word[]> => {
     const snap = await getDocs(colRef);
     return snap.docs.map(d => d.data() as Word);
   } catch (error) {
-    console.error("User Words Cloud Fetch Error:", error);
+    console.error("User Words Fetch Error:", error);
     return [];
   }
 };
