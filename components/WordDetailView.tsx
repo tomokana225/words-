@@ -29,7 +29,7 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, onUpdate, onBack,
       setImageLoading(true);
       const cached = await fetchWordFromDB(word.term);
       let finalDetails = { ...word, ...cached };
-      if (!finalDetails.phonetic || !finalDetails.etymology) {
+      if (!finalDetails.phonetic || !finalDetails.etymology || !finalDetails.relatedWords) {
         const aiDetails = await getWordDetails(word.term);
         finalDetails = { ...finalDetails, ...aiDetails };
       }
@@ -54,94 +54,105 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, onUpdate, onBack,
     setTimeout(() => setIsPlaying(false), 1000);
   };
 
-  const formatDate = (ts?: number) => {
-    if (!ts) return '未設定';
-    return new Date(ts).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  };
-
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-500 pb-24">
+    <div className="space-y-6 max-w-2xl mx-auto pb-12 animate-view">
       <header className="flex items-center justify-between">
-        <button onClick={onBack} className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg border border-slate-100 bounce-on-click hover:bg-slate-50 transition">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-600"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <button onClick={onBack} className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
         </button>
         <div className="flex flex-col items-center">
-           <span className="font-black text-slate-400 uppercase tracking-[0.3em] text-[10px] md:text-xs">AI Deep Analysis</span>
-           {word.nextReviewDate && (
-             <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest mt-1 bg-rose-50 px-3 py-1 rounded-full">Next Review: {formatDate(word.nextReviewDate)}</span>
-           )}
+           <span className="font-bold text-slate-300 uppercase tracking-widest text-[10px]">AI 言語解析</span>
         </div>
-        <button 
-          onClick={() => handlePlay(word.term)}
-          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isPlaying ? 'bg-indigo-600 text-white animate-pulse' : 'bg-white text-indigo-600 shadow-lg border border-slate-100 hover:scale-105'}`}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-        </button>
+        <div className="w-10"></div>
       </header>
 
-      <div className="bg-white rounded-[3.5rem] overflow-hidden shadow-2xl border border-slate-50 flex flex-col md:flex-row">
-        {/* Responsive Image Section */}
-        <div className="w-full md:w-1/2 aspect-square md:aspect-auto relative bg-slate-50">
+      <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-slate-200">
+        <div className="aspect-[4/3] relative bg-slate-50 border-b border-slate-100">
           {imageLoading ? (
-            <div className="absolute inset-0 flex items-center justify-center flex-col gap-6">
-              <div className="w-16 h-16 border-8 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-xl"></div>
-              <p className="text-xs font-black text-indigo-400 uppercase tracking-widest animate-pulse">Core Concept Image...</p>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
             </div>
           ) : imageUrl ? (
             <img src={imageUrl} alt={word.term} className="w-full h-full object-cover" />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-8xl grayscale opacity-20">🎨</div>
+            <div className="absolute inset-0 flex items-center justify-center text-4xl opacity-10">🎨</div>
           )}
-          <div className="absolute bottom-10 left-10 right-10">
-            <div className="bg-white/95 backdrop-blur-xl p-6 rounded-3xl shadow-2xl border border-white/50 inline-block transform -rotate-1 hover:rotate-0 transition duration-500">
-               <span className="text-[10px] md:text-xs font-black text-indigo-600 uppercase mb-2 block tracking-[0.2em]">Eiken Level {word.level}</span>
-               <h1 className="text-5xl md:text-7xl font-black text-slate-800 tracking-tighter">{word.term}</h1>
-               <div className="flex items-center gap-2 mt-3 text-slate-400 font-mono font-bold tracking-widest">{details.phonetic}</div>
+          <div className="absolute bottom-6 left-6 right-6">
+            <div className="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-white/50 inline-block">
+               <h1 className="text-3xl font-bold text-slate-800 tracking-tight">{word.term}</h1>
+               <p className="text-xs font-medium text-slate-400 font-mono mt-1">{details.phonetic}</p>
             </div>
           </div>
+          <button 
+            onClick={() => handlePlay(word.term)}
+            className="absolute top-6 right-6 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center text-indigo-600 shadow-lg border border-white hover:scale-105 transition"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          </button>
         </div>
 
-        <div className="w-full md:w-1/2 p-10 md:p-14 space-y-12 overflow-y-auto max-h-[800px] custom-scrollbar bg-white">
-          <div className="flex flex-col gap-2">
-            <h2 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tight leading-tight">{details.meaning || word.meaning}</h2>
+        <div className="p-8 space-y-8">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">{details.meaning || word.meaning}</h2>
+            <div className="h-0.5 w-12 bg-indigo-500 rounded-full"></div>
           </div>
 
-          <div className="space-y-10">
-            <div className="bg-slate-50/80 p-8 rounded-[2.5rem] border border-slate-100 shadow-inner">
-              <h3 className="text-[10px] md:text-xs font-black text-indigo-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                成り立ち・コアイメージ
+          <div className="space-y-8">
+            <section className="space-y-3">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                成り立ちとコアイメージ
               </h3>
-              <p className="text-slate-700 leading-relaxed font-bold md:text-lg whitespace-pre-wrap">{details.etymology}</p>
-            </div>
+              <p className="text-slate-600 leading-relaxed font-medium text-sm whitespace-pre-wrap bg-slate-50 p-4 rounded-xl border border-slate-100">{details.etymology}</p>
+            </section>
 
-            <div className="p-8 border-l-8 border-indigo-600 bg-indigo-50/30 rounded-r-[2.5rem] relative group hover:bg-indigo-50/50 transition shadow-sm border border-slate-100">
-              <h3 className="text-[10px] md:text-xs font-black text-indigo-400 uppercase tracking-widest mb-4">実践例文</h3>
-              <p className="text-xl md:text-2xl text-slate-800 font-black mb-4 leading-snug tracking-tight">{details.exampleSentence}</p>
-              <p className="text-base md:text-lg text-slate-500 font-bold leading-relaxed">{details.exampleSentenceJapanese}</p>
-              <button 
-                onClick={() => handlePlay(details.exampleSentence)}
-                className="absolute top-6 right-6 w-12 h-12 bg-white rounded-xl shadow-lg flex items-center justify-center text-indigo-500 hover:scale-110 active:scale-90 transition border border-slate-50"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-              </button>
-            </div>
+            {/* 同じ語源を持つ単語セクション */}
+            {details.relatedWords && details.relatedWords.length > 0 && (
+              <section className="space-y-3">
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 16.5A4.5 4.5 0 1 0 7.5 12"/><path d="M12 7.5A4.5 4.5 0 1 1 16.5 12"/></svg>
+                  同じ語源を持つ仲間
+                </h3>
+                <div className="grid grid-cols-1 gap-2">
+                  {details.relatedWords.map((rw, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 bg-indigo-50/50 rounded-xl border border-indigo-100 hover:bg-indigo-50 transition cursor-pointer group" onClick={() => onSelectSynonym(rw.term)}>
+                      <span className="text-sm font-bold text-indigo-700 group-hover:scale-105 transition-transform">{rw.term}</span>
+                      <span className="text-xs text-slate-500 font-medium">{rw.meaning}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
-            <div className="space-y-4">
-               <h3 className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest px-3">類義語・関連ワード</h3>
-               <div className="flex flex-wrap gap-3">
+            <section className="space-y-3 relative">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">例文</h3>
+              <div className="p-5 border-l-4 border-indigo-500 bg-indigo-50/30 rounded-r-xl">
+                <p className="text-base text-slate-800 font-bold mb-2 leading-snug">{details.exampleSentence}</p>
+                <p className="text-xs text-slate-500 font-medium">{details.exampleSentenceJapanese}</p>
+                <button 
+                  onClick={() => handlePlay(details.exampleSentence)}
+                  className="mt-4 flex items-center gap-1.5 text-indigo-600 text-[10px] font-bold hover:underline"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
+                  音声で再生
+                </button>
+              </div>
+            </section>
+
+            <section className="space-y-3">
+               <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">類義語</h3>
+               <div className="flex flex-wrap gap-2">
                  {details.synonyms?.map((s, i) => (
                    <button 
                      key={i} 
                      onClick={() => onSelectSynonym(s)}
-                     className="px-6 py-3 bg-white border-2 border-slate-100 rounded-2xl text-sm md:text-base font-black text-indigo-600 hover:border-indigo-500 hover:shadow-xl hover:translate-y-[-2px] transition-all bounce-on-click"
+                     className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:border-indigo-500 hover:text-indigo-600 transition bounce-on-click"
                    >
                      {s}
                    </button>
                  ))}
-                 {!details.synonyms?.length && <p className="text-slate-300 font-bold px-3 italic">関連ワードを解析中...</p>}
                </div>
-            </div>
+            </section>
           </div>
         </div>
       </div>

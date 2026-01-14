@@ -7,24 +7,36 @@ export enum EikenLevel {
   GRADE_1 = '1級'
 }
 
+export interface UserStats {
+  xp: number;
+  coins: number;
+  level: number;
+  totalStudyTime: number; // 秒単位
+  unlockedItems: string[];
+  activeAvatar: string;
+  lastLoginDate?: number;
+}
+
 export interface Word {
   id: string;
   term: string;
   meaning: string;
   level: EikenLevel;
   phonetic?: string;
-  etymology?: string; // 単語の成り立ち、接頭辞・接尾辞
-  coreImageDescription?: string; // AIへのコアイメージ指示用
+  etymology?: string;
+  relatedWords?: { term: string; meaning: string }[]; // 同じ語源を持つ単語
+  coreImageDescription?: string;
   synonyms?: string[];
   exampleSentence?: string;
   exampleSentenceJapanese?: string;
-  imageUrl?: string; // AI生成画像
+  imageUrl?: string;
   isMastered?: boolean;
   difficultyScore?: number;
-  nextReviewDate?: number; // 次回復習日 (Timestamp)
+  nextReviewDate?: number;
   lastReviewedDate?: number;
-  reviewInterval?: number; // 復習間隔（日）
-  streak?: number; // 連続正解数
+  reviewInterval?: number;
+  streak?: number;
+  rewardClaimed?: boolean;
 }
 
 export interface QuizQuestion {
@@ -38,4 +50,12 @@ export interface QuizResult {
   userAnswers: number[];
   score: number;
   timestamp: number;
+}
+
+export interface ShopItem {
+  id: string;
+  name: string;
+  price: number;
+  type: 'avatar' | 'accessory' | 'theme';
+  preview: string;
 }

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { EikenLevel, Word, QuizResult } from './types';
+import { EikenLevel, Word, QuizResult, UserStats, ShopItem } from './types';
 import Dashboard from './components/Dashboard';
 import QuizView from './components/QuizView';
 import WordDetailView from './components/WordDetailView';
@@ -8,6 +8,9 @@ import DiagnosisView from './components/DiagnosisView';
 import AdminView from './components/AdminView';
 import LevelWordListView from './components/LevelWordListView';
 import CourseSelectionView from './components/CourseSelectionView';
+import WelcomeView from './components/WelcomeView';
+import MyPageView from './components/MyPageView';
+import ShopView from './components/ShopView';
 import { 
   initializeFirebase,
   onAuthChange, 
@@ -16,114 +19,136 @@ import {
   fetchUserWords, 
   fetchGlobalWords,
   saveUserWordProgress,
-  saveWordToDB,
-  getAdminEmail,
-  isFirebaseReady
+  getAdminEmail
 } from './services/firebaseService';
 import { User } from 'firebase/auth';
 
 const App: React.FC = () => {
   const [isAppReady, setIsAppReady] = useState(false);
-  const [view, setView] = useState<'dashboard' | 'quiz' | 'detail' | 'diagnosis' | 'admin' | 'level_preview' | 'course_selection'>('dashboard');
+  const [view, setView] = useState<'welcome' | 'dashboard' | 'wordbook' | 'diagnosis' | 'mypage' | 'quiz' | 'detail' | 'admin' | 'level_preview' | 'shop'>('welcome');
   const [user, setUser] = useState<User | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<EikenLevel | 'ALL' | 'REVIEW' | 'WEAK'>('ALL');
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [history, setHistory] = useState<string[]>(['dashboard']);
+
+  // ユーザー統計（初期値）
+  const [stats, setStats] = useState<UserStats>({
+    xp: 0,
+    coins: 500, // 初期コインを少し多めに
+    level: 1,
+    totalStudyTime: 0,
+    unlockedItems: ['default-avatar'],
+    activeAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
+  });
 
   const isAdmin = useMemo(() => {
     const adminEmail = getAdminEmail();
     return user?.email && adminEmail && user.email === adminEmail;
   }, [user]);
 
+  // 学習時間の計測
+  useEffect(() => {
+    if (view === 'welcome' || view === 'quiz') return;
+    const timer = setInterval(() => {
+      setStats(prev => ({ ...prev, totalStudyTime: prev.totalStudyTime + 1 }));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [view]);
+
   useEffect(() => {
     const init = async () => {
       await initializeFirebase();
-      
       const unsubscribe = onAuthChange(async (fbUser) => {
         setUser(fbUser);
-        setIsSyncing(true);
-        try {
-          let userWords: Word[] = [];
-          if (fbUser) {
-            userWords = await fetchUserWords(fbUser.uid);
-          }
-          
-          if (userWords.length > 0) {
-            setWords(userWords);
-            setView('dashboard');
+        if (fbUser) {
+          const userWords = await fetchUserWords(fbUser.uid);
+          setWords(userWords);
+          const masteredCount = userWords.filter(w => w.isMastered).length;
+          setStats(prev => ({
+            ...prev,
+            xp: masteredCount * 100 + (userWords.length * 10),
+            level: Math.floor(Math.sqrt((masteredCount * 100) / 100)) + 1,
+            // 実際はDBから読み込むべきだがデモ用に計算
+            coins: prev.coins + (masteredCount * 50)
+          }));
+          if (view === 'welcome') navigateTo('dashboard');
+        } else {
+          const savedMock = localStorage.getItem('eiken_mock_user');
+          if (savedMock) {
+             const globals = await fetchGlobalWords();
+             setWords(globals);
+             if (view === 'welcome') navigateTo('dashboard');
           } else {
-            // データがない場合はコース選択へ
-            setView('course_selection');
+             setView('welcome');
           }
-        } catch (e) {
-          console.error("Sync Error:", e);
-        } finally {
-          setIsSyncing(false);
         }
         setIsAppReady(true);
       });
-
       return () => unsubscribe();
     };
     init();
   }, []);
 
-  const handleSelectCourse = async (level: EikenLevel) => {
-    setIsSyncing(true);
-    try {
-      const globals = await fetchGlobalWords();
-      const filtered = globals.filter(w => w.level === level);
-      
-      // ログインしていれば初期進捗として保存
-      if (user && filtered.length > 0) {
-        await Promise.all(filtered.map(w => saveUserWordProgress(user.uid, w)));
-      }
-      
-      setWords(filtered.length > 0 ? filtered : []);
-      setSelectedLevel(level);
+  const navigateTo = (newView: any) => {
+    setHistory(prev => [...prev, newView]);
+    setView(newView);
+  };
+
+  const goBack = () => {
+    if (history.length > 1) {
+      const newHistory = [...history];
+      newHistory.pop();
+      const prevView = newHistory[newHistory.length - 1];
+      setHistory(newHistory);
+      setView(prevView as any);
+    } else {
       setView('dashboard');
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSyncing(false);
     }
   };
+
+  const grantRewards = useCallback((newWords: Word[]) => {
+    let earnedCoins = 0;
+    let earnedXp = 0;
+    
+    newWords.forEach(w => {
+      if (w.isMastered && !w.rewardClaimed) {
+        earnedCoins += 50;
+        earnedXp += 100;
+        w.rewardClaimed = true;
+      } else {
+        earnedXp += 10;
+      }
+    });
+
+    if (earnedCoins > 0 || earnedXp > 0) {
+      setStats(prev => {
+        const nextXp = prev.xp + earnedXp;
+        const nextLevel = Math.floor(Math.sqrt(nextXp / 100)) + 1;
+        return {
+          ...prev,
+          xp: nextXp,
+          coins: prev.coins + earnedCoins,
+          level: nextLevel
+        };
+      });
+    }
+  }, []);
 
   const handleUpdateWord = useCallback(async (updated: Word) => {
     setWords(prev => {
       const idx = prev.findIndex(w => w.term.toLowerCase() === updated.term.toLowerCase());
+      const copy = [...prev];
       if (idx > -1) {
-        const copy = [...prev];
         copy[idx] = { ...copy[idx], ...updated };
-        return copy;
+      } else {
+        copy.push(updated);
       }
-      return [...prev, updated];
+      grantRewards([updated]);
+      return copy;
     });
-    
-    if (user) {
-      await saveUserWordProgress(user.uid, updated);
-      if (isAdmin) await saveWordToDB(updated);
-    }
-  }, [user, isAdmin]);
-
-  const handleBatchImport = useCallback(async (newWords: Word[]) => {
-    if (!isAdmin || !user) return;
-    setWords(prev => {
-      const wordMap = new Map<string, Word>();
-      prev.forEach(w => wordMap.set(w.term.toLowerCase(), w));
-      newWords.forEach(w => {
-        const key = w.term.toLowerCase();
-        wordMap.set(key, { ...(wordMap.get(key) || {}), ...w });
-      });
-      return Array.from(wordMap.values());
-    });
-    await Promise.all(newWords.map(async (w) => {
-      await saveUserWordProgress(user.uid, w);
-      await saveWordToDB(w);
-    }));
-    setView('dashboard');
-  }, [user, isAdmin]);
+    if (user) await saveUserWordProgress(user.uid, updated);
+  }, [user, grantRewards]);
 
   const saveQuizResults = useCallback(async (results: QuizResult) => {
     const updatedBatch: Word[] = [];
@@ -151,14 +176,13 @@ const App: React.FC = () => {
           updatedBatch.push(w);
         }
       });
+      grantRewards(updatedBatch);
       return nextWords;
     });
     if (user) {
-      for (const w of updatedBatch) {
-        await saveUserWordProgress(user.uid, w);
-      }
+      for (const w of updatedBatch) await saveUserWordProgress(user.uid, w);
     }
-  }, [user]);
+  }, [user, grantRewards]);
 
   const quizPool = useMemo(() => {
     const now = Date.now();
@@ -170,104 +194,76 @@ const App: React.FC = () => {
 
   if (!isAppReady) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8 text-center">
-        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-6"></div>
-        <h2 className="font-black text-slate-800 text-2xl">EikenMaster AI</h2>
-        <p className="text-slate-400 font-bold mt-2">Ready for English Study...</p>
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-8 text-center font-sans">
+        <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="font-medium text-slate-500 text-sm">読み込み中...</p>
       </div>
     );
   }
 
+  const hideNav = view === 'quiz' || view === 'welcome';
+
+  const navItems = [
+    { id: 'dashboard', label: 'ホーム', icon: <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/> },
+    { id: 'wordbook', label: '単語帳', icon: <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/> },
+    { id: 'shop', label: 'ショップ', icon: <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/> },
+    { id: 'diagnosis', label: '診断', icon: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/> },
+    { id: 'mypage', label: '記録', icon: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/> },
+  ];
+
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 relative font-['Noto_Sans_JP'] overflow-x-hidden">
-      {view !== 'quiz' && view !== 'course_selection' && (
-        <aside className="hidden lg:flex w-72 flex-col bg-white border-r border-slate-200 p-8 sticky top-0 h-screen z-50">
-          <div onClick={() => setView('dashboard')} className="cursor-pointer mb-12 flex items-center gap-3">
-            <div className="w-10 h-10 gradient-primary text-white rounded-2xl flex items-center justify-center shadow-lg transform -rotate-6">
-               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-            </div>
-            <h1 className="text-xl font-black text-slate-800 tracking-tight">EikenMaster AI</h1>
+    <div className="min-h-screen flex flex-col lg:flex-row bg-slate-50 font-sans selection:bg-indigo-100 selection:text-indigo-700 overflow-hidden">
+      {!hideNav && (
+        <aside className="hidden lg:flex w-64 flex-col bg-white border-r border-slate-200 py-10 px-6 h-screen sticky top-0 z-50">
+          <div className="mb-10 px-2 cursor-pointer" onClick={() => navigateTo('dashboard')}>
+            <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <div className="w-6 h-6 gradient-primary rounded-md"></div>
+              EikenMaster AI
+            </h1>
           </div>
-          <nav className="flex-1 space-y-2">
-            {[
-              { id: 'dashboard', label: 'ホーム', icon: <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/> },
-              { id: 'diagnosis', label: '単語力診断', icon: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/> },
-              ...(isAdmin ? [{ id: 'admin', label: '一括登録', icon: <path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/> }] : []),
-            ].map(item => (
+          <nav className="flex-1 space-y-1">
+            {navItems.map(item => (
               <button 
                 key={item.id}
-                onClick={() => setView(item.id as any)}
-                className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold transition-all ${view === item.id ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50'}`}
+                onClick={() => navigateTo(item.id as any)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${view === item.id || (item.id === 'wordbook' && view === 'level_preview') ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">{item.icon}</svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{item.icon}</svg>
                 <span>{item.label}</span>
               </button>
             ))}
           </nav>
-          <div className="pt-8 border-t border-slate-100">
-             {isSyncing && (
-               <div className="mb-4 px-4 py-2 bg-indigo-50 text-indigo-500 text-[10px] font-black rounded-lg animate-pulse flex items-center gap-2">
-                 <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping"></div>
-                 同期中...
-               </div>
-             )}
-             {user ? (
-               <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 overflow-hidden">
-                 <img src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} className="w-9 h-9 rounded-xl shadow-sm shrink-0" alt="User"/>
-                 <div className="min-w-0">
-                   <p className="font-bold text-slate-700 truncate text-xs">{user.displayName || user.email}</p>
-                   <button onClick={logout} className="block text-[10px] font-black text-rose-500 hover:underline">ログアウト</button>
-                 </div>
-               </div>
-             ) : (
-               <button onClick={loginWithGoogle} className="w-full py-4 gradient-primary text-white rounded-2xl font-black shadow-lg text-sm">
-                 ログイン
-               </button>
-             )}
-          </div>
         </aside>
       )}
 
-      {/* Mobile Navbar */}
-      {view !== 'quiz' && view !== 'course_selection' && (
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around p-4 z-[100] shadow-2xl pb-safe">
-           <button onClick={() => setView('dashboard')} className={`p-3 rounded-2xl ${view === 'dashboard' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400'}`}>
-             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-           </button>
-           <button onClick={() => setView('diagnosis')} className={`p-3 rounded-2xl ${view === 'diagnosis' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400'}`}>
-             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-           </button>
-           {isAdmin && (
-             <button onClick={() => setView('admin')} className={`p-3 rounded-2xl ${view === 'admin' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400'}`}>
-               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/></svg>
+      {!hideNav && (
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-200 flex items-center justify-around p-2 z-[100] pb-safe shadow-lg">
+           {navItems.map(item => (
+             <button 
+               key={item.id}
+               onClick={() => navigateTo(item.id as any)} 
+               className={`flex flex-col items-center gap-1 p-2 min-w-[60px] transition-all ${view === item.id || (item.id === 'wordbook' && view === 'level_preview') ? 'text-indigo-600' : 'text-slate-400'}`}
+             >
+               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">{item.icon}</svg>
+               <span className="text-[9px] font-bold tracking-tight">{item.label}</span>
              </button>
-           )}
-           <button onClick={user ? logout : loginWithGoogle} className="p-3 text-slate-400">
-             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-           </button>
+           ))}
         </nav>
       )}
 
-      <main className={`flex-1 w-full max-w-7xl mx-auto px-4 md:px-12 ${view === 'quiz' || view === 'course_selection' ? 'pt-0' : 'pt-6 md:pt-10'} pb-32`}>
-        {view === 'course_selection' && <CourseSelectionView onSelect={handleSelectCourse} />}
-        {view === 'dashboard' && (
-          <Dashboard 
-            words={words} 
-            isAdmin={isAdmin}
-            onSelectLevel={(l) => { setSelectedLevel(l as any); setView('level_preview'); }} 
-            onViewWord={(w) => { setCurrentWord(w); setView('detail'); }} 
-            onQuickAdd={(t) => { 
-              if (!isAdmin) return;
-              setCurrentWord({ id: `q-${Date.now()}`, term: t, meaning: '解析中...', level: EikenLevel.GRADE_3 }); 
-              setView('detail'); 
-            }} 
-          />
-        )}
-        {view === 'level_preview' && <LevelWordListView level={selectedLevel as any} words={quizPool} onStartQuiz={() => setView('quiz')} onBack={() => setView('dashboard')} onViewWord={(w) => { setCurrentWord(w); setView('detail'); }} />}
-        {view === 'quiz' && <QuizView words={quizPool} onComplete={(r) => { saveQuizResults(r); setView('dashboard'); }} onViewWord={(w, r) => { saveQuizResults(r); setCurrentWord(w); setView('detail'); }} onCancel={() => setView('dashboard')} />}
-        {view === 'detail' && currentWord && <WordDetailView word={currentWord} onUpdate={handleUpdateWord} onBack={() => setView('dashboard')} onSelectSynonym={(t) => { setCurrentWord({ id: `syn-${Date.now()}`, term: t, meaning: '解析中...', level: EikenLevel.GRADE_3 }); }} />}
-        {view === 'admin' && isAdmin && <AdminView onImport={handleBatchImport} onCancel={() => setView('dashboard')} />}
-        {view === 'diagnosis' && <DiagnosisView onCancel={() => setView('dashboard')} />}
+      <main className={`flex-1 w-full max-w-4xl mx-auto px-4 lg:px-8 ${hideNav ? 'pt-0' : 'pt-6 lg:pt-10'} pb-24 overflow-y-auto h-screen custom-scrollbar`}>
+        <div className="animate-view">
+          {view === 'welcome' && <WelcomeView onLogin={loginWithGoogle} onGuest={() => navigateTo('dashboard')} />}
+          {view === 'dashboard' && <Dashboard user={user} stats={stats} words={words} onSelectLevel={(l) => { setSelectedLevel(l as any); navigateTo('level_preview'); }} onViewWord={(w) => { setCurrentWord(w); navigateTo('detail'); }} onGoShop={() => navigateTo('shop')} />}
+          {view === 'wordbook' && <CourseSelectionView onSelect={(l) => { setSelectedLevel(l); navigateTo('level_preview'); }} onLogin={loginWithGoogle} onBack={goBack} />}
+          {view === 'diagnosis' && <DiagnosisView onCancel={goBack} />}
+          {view === 'mypage' && <MyPageView user={user} stats={stats} words={words} onLogout={logout} onLogin={loginWithGoogle} onAdmin={() => navigateTo('admin')} isAdmin={isAdmin} onBack={goBack} onSelectItem={(id) => setStats(prev => ({...prev, activeAvatar: id}))} />}
+          {view === 'shop' && <ShopView stats={stats} onPurchase={(item) => { setStats(prev => ({ ...prev, coins: prev.coins - item.price, unlockedItems: [...prev.unlockedItems, item.id] })); }} onGacha={(items) => { setStats(prev => ({ ...prev, coins: prev.coins - 300, unlockedItems: [...prev.unlockedItems, ...items.map(i => i.id)] })); }} onBack={goBack} />}
+          {view === 'level_preview' && <LevelWordListView level={selectedLevel as any} words={quizPool} onStartQuiz={() => navigateTo('quiz')} onBack={goBack} onViewWord={(w) => { setCurrentWord(w); navigateTo('detail'); }} />}
+          {view === 'quiz' && <QuizView words={quizPool} onComplete={(r) => { saveQuizResults(r); navigateTo('dashboard'); }} onViewWord={(w, r) => { saveQuizResults(r); setCurrentWord(w); navigateTo('detail'); }} onCancel={goBack} />}
+          {view === 'detail' && currentWord && <WordDetailView word={currentWord} onUpdate={handleUpdateWord} onBack={goBack} onSelectSynonym={(t) => { setCurrentWord({ id: `syn-${Date.now()}`, term: t, meaning: '解析中...', level: EikenLevel.GRADE_3 }); }} />}
+          {view === 'admin' && isAdmin && <AdminView onImport={async (ws) => { /* logic */ }} onCancel={goBack} />}
+        </div>
       </main>
     </div>
   );

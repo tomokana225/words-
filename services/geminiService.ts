@@ -76,7 +76,7 @@ export const getWordDetails = async (term: string): Promise<Partial<Word>> => {
     const response = await callGeminiProxy({
       model: "gemini-3-pro-preview",
       contents: `Analyze the English word "${term}". Provide professional linguistic details in Japanese. 
-      Include: phonetic symbols, etymology (prefix/root/suffix breakdown), core image concept description, 3 synonyms, and a natural example sentence with its Japanese translation.`,
+      Include: phonetic symbols, etymology (prefix/root/suffix breakdown), core image concept description, 3 synonyms, a natural example sentence with its Japanese translation, and 3 other words that share the same root or etymology with their meanings.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -84,11 +84,23 @@ export const getWordDetails = async (term: string): Promise<Partial<Word>> => {
           properties: {
             phonetic: { type: Type.STRING },
             etymology: { type: Type.STRING, description: "Detailed breakdown of prefix, suffix, and core image concept in Japanese." },
+            relatedWords: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  term: { type: Type.STRING },
+                  meaning: { type: Type.STRING }
+                },
+                required: ["term", "meaning"]
+              },
+              description: "3 words sharing the same root."
+            },
             synonyms: { type: Type.ARRAY, items: { type: Type.STRING } },
             exampleSentence: { type: Type.STRING },
             exampleSentenceJapanese: { type: Type.STRING }
           },
-          required: ["phonetic", "etymology", "synonyms", "exampleSentence", "exampleSentenceJapanese"]
+          required: ["phonetic", "etymology", "synonyms", "exampleSentence", "exampleSentenceJapanese", "relatedWords"]
         }
       }
     });
