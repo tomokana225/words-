@@ -18,7 +18,7 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
   const [gachaResult, setGachaResult] = useState<GachaItem | null>(null);
   const [showRates, setShowRates] = useState(false);
 
-  // ピクセルアバター（直接購入可能）- 15種類追加し合計23種類に拡充
+  // ピクセルアバター（直接購入可能）- 15種類追加し合計38種類に拡充
   const shopItems: ShopItem[] = [
     // --- 冒険者シリーズ ---
     { id: 'av-p-1', name: 'ピクセル勇者', price: 300, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Hero' },
@@ -27,6 +27,9 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
     { id: 'av-p-4', name: 'ピクセル姫', price: 450, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Princess' },
     { id: 'av-p-5', name: 'ドット忍者', price: 500, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Ninja' },
     { id: 'av-p-6', name: 'ピクセル農夫', price: 500, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Farmer' },
+    { id: 'av-p-7', name: 'ドット侍', price: 600, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Samurai' },
+    { id: 'av-p-8', name: 'ピクセル錬金術師', price: 750, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Alchemist' },
+    { id: 'av-p-9', name: 'ドット学者', price: 800, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Professor' },
     { id: 'av-p-10', name: 'ピクセル王', price: 1000, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=King' },
 
     // --- アニマルシリーズ ---
@@ -38,6 +41,12 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
     { id: 'av-a-6', name: 'ドット狼', price: 700, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Wolf' },
     { id: 'av-a-7', name: 'ピクセル熊', price: 650, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Bear' },
     { id: 'av-a-8', name: 'ドットカエル', price: 300, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Frog' },
+    { id: 'av-a-9', name: 'ピクセルライオン', price: 900, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Lion' },
+    { id: 'av-a-10', name: 'ドットパンダ', price: 850, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Panda' },
+    { id: 'av-a-11', name: 'ピクセルペンギン', price: 500, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Penguin' },
+    { id: 'av-a-12', name: 'ドットコアラ', price: 700, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Koala' },
+    { id: 'av-a-13', name: 'ピクセル象', price: 1100, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Elephant' },
+    { id: 'av-a-14', name: 'ドット梟', price: 600, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Owl' },
 
     // --- スペシャル・幻獣シリーズ ---
     { id: 'av-s-1', name: 'ドットロボ', price: 1000, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Robot' },
@@ -48,6 +57,12 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
     { id: 'av-s-6', name: 'ピクセルフェニックス', price: 3000, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Phoenix' },
     { id: 'av-s-7', name: 'ドットドラゴン', price: 3500, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Dragon' },
     { id: 'av-s-8', name: 'ピクセル天使', price: 2800, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Angel' },
+    { id: 'av-s-9', name: 'ドット死神', price: 2200, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Reaper' },
+    { id: 'av-s-11', name: 'ピクセルヴァンパイア', price: 1800, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Vampire' },
+    { id: 'av-s-12', name: 'ドット人魚', price: 2400, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Mermaid' },
+    { id: 'av-s-13', name: 'ピクセル妖精', price: 1500, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Fairy' },
+    { id: 'av-s-14', name: 'ドットゴーレム', price: 3200, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Golem' },
+    { id: 'av-s-15', name: 'ピクセルクラーケン', price: 4000, type: 'avatar', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Kraken' },
   ];
 
   // ガチャ景品リスト（重み付け用）
@@ -108,9 +123,9 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
   };
 
   const categories = [
-    { name: '冒険者', items: shopItems.filter(i => i.id.startsWith('av-p')) },
+    { name: 'ピクセル冒険者', items: shopItems.filter(i => i.id.startsWith('av-p')) },
     { name: 'ピクセルアニマル', items: shopItems.filter(i => i.id.startsWith('av-a')) },
-    { name: 'スペシャル・幻獣', items: shopItems.filter(i => i.id.startsWith('av-s')) },
+    { name: '幻獣・スペシャル', items: shopItems.filter(i => i.id.startsWith('av-s')) },
   ];
 
   return (
@@ -122,7 +137,7 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
           </button>
           <div>
             <h2 className="text-xl font-bold text-slate-900 tracking-tight">ドット絵ショップ</h2>
-            <p className="text-xs font-medium text-slate-500">学習のご褒美に！</p>
+            <p className="text-xs font-medium text-slate-500">ピクセルコレクションを広げよう</p>
           </div>
         </div>
         <div className="bg-amber-50 px-4 py-2 rounded-2xl border border-amber-100 flex items-center gap-2 shadow-sm">

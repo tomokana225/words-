@@ -19,7 +19,7 @@ const MyPageView: React.FC<MyPageViewProps> = ({ user, stats, words, onLogout, o
   const [activeTab, setActiveTab] = useState<'stats' | 'gallery'>('stats');
   const masteredCount = words.filter(w => w.isMastered).length;
   
-  // ショップ・ガチャの全ラインナップを統合 - 新アバターを反映
+  // ショップ・ガチャの全ラインナップを統合 - 新アバター全38種類を反映
   const avatars = [
     { id: 'default-avatar', name: 'デフォルト', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Felix' },
     // 冒険者
@@ -29,6 +29,9 @@ const MyPageView: React.FC<MyPageViewProps> = ({ user, stats, words, onLogout, o
     { id: 'av-p-4', name: 'ピクセル姫', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Princess' },
     { id: 'av-p-5', name: 'ドット忍者', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Ninja' },
     { id: 'av-p-6', name: 'ピクセル農夫', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Farmer' },
+    { id: 'av-p-7', name: 'ドット侍', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Samurai' },
+    { id: 'av-p-8', name: 'ピクセル錬金術師', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Alchemist' },
+    { id: 'av-p-9', name: 'ドット学者', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Professor' },
     { id: 'av-p-10', name: 'ピクセル王', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=King' },
     // アニマル
     { id: 'av-a-1', name: 'ドットわんこ', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Dog' },
@@ -39,7 +42,13 @@ const MyPageView: React.FC<MyPageViewProps> = ({ user, stats, words, onLogout, o
     { id: 'av-a-6', name: 'ドット狼', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Wolf' },
     { id: 'av-a-7', name: 'ピクセル熊', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Bear' },
     { id: 'av-a-8', name: 'ドットカエル', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Frog' },
-    // スペシャル・幻獣
+    { id: 'av-a-9', name: 'ピクセルライオン', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Lion' },
+    { id: 'av-a-10', name: 'ドットパンダ', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Panda' },
+    { id: 'av-a-11', name: 'ピクセルペンギン', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Penguin' },
+    { id: 'av-a-12', name: 'ドットコアラ', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Koala' },
+    { id: 'av-a-13', name: 'ピクセル象', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Elephant' },
+    { id: 'av-a-14', name: 'ドット梟', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Owl' },
+    // 幻獣・スペシャル
     { id: 'av-s-1', name: 'ドットロボ', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Robot' },
     { id: 'av-s-2', name: 'ピクセル宇宙人', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Alien' },
     { id: 'av-s-3', name: 'ドットおばけ', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Ghost' },
@@ -48,6 +57,12 @@ const MyPageView: React.FC<MyPageViewProps> = ({ user, stats, words, onLogout, o
     { id: 'av-s-6', name: 'ピクセルフェニックス', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Phoenix' },
     { id: 'av-s-7', name: 'ドットドラゴン', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Dragon' },
     { id: 'av-s-8', name: 'ピクセル天使', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Angel' },
+    { id: 'av-s-9', name: 'ドット死神', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Reaper' },
+    { id: 'av-s-11', name: 'ピクセルヴァンパイア', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Vampire' },
+    { id: 'av-s-12', name: 'ドット人魚', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Mermaid' },
+    { id: 'av-s-13', name: 'ピクセル妖精', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Fairy' },
+    { id: 'av-s-14', name: 'ドットゴーレム', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Golem' },
+    { id: 'av-s-15', name: 'ピクセルクラーケン', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Kraken' },
   ];
 
   const gachaItems = [

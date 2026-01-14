@@ -39,7 +39,7 @@ const App: React.FC = () => {
     level: 1,
     totalStudyTime: 0,
     unlockedItems: ['default-avatar'],
-    activeAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
+    activeAvatar: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Felix'
   });
 
   const isAdmin = useMemo(() => {
@@ -206,7 +206,7 @@ const App: React.FC = () => {
   const navItems = [
     { id: 'dashboard', label: 'ホーム', icon: <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/> },
     { id: 'wordbook', label: '単語帳', icon: <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/> },
-    { id: 'shop', label: 'ショップ', icon: <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/> },
+    { id: 'shop', label: 'ショップ', icon: <><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></> },
     { id: 'diagnosis', label: '診断', icon: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/> },
     { id: 'mypage', label: '記録', icon: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/> },
   ];
