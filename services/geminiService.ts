@@ -1,9 +1,9 @@
-
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Word } from "../types";
 
-// Always initialize GoogleGenAI with a named parameter using process.env.GEMINI_API_KEY directly.
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Always initialize GoogleGenAI with a named parameter using process.env.API_KEY.
+// Cloudflareで登録した GEMINI_API_KEY を API_KEY という名前に変更してください。
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Audio Helper Functions
 function decode(base64: string) {
@@ -62,7 +62,7 @@ export const getWordDetails = async (term: string): Promise<Partial<Word>> => {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `英単語「${term}」の情報をJSONで提供してください。語源は日本語で。`,
+      contents: `英単語「${term}」の情報をJSONで提供してください。語源、例文、類義語を日本語で。`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -89,7 +89,7 @@ export const generateCoreImage = async (term: string, meaning: string): Promise<
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [{ text: `${term} (${meaning}) の教育用コアイメージ画像。文字なし。` }]
+        parts: [{ text: `${term} (${meaning}) の意味を象徴する、シンプルで教育的なイラスト。背景は白。` }]
       }
     });
     const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
