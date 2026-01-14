@@ -1,5 +1,4 @@
 name = "eikenmaster-ai"
-main = "src/worker.ts"
 compatibility_date = "2026-01-14"
 
 [assets]
