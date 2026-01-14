@@ -6,8 +6,9 @@ export default defineConfig({
   plugins: [react()],
   define: {
     'process.env': {
-      API_KEY: process.env.API_KEY,
-      ADMIN_EMAIL: process.env.ADMIN_EMAIL, // 管理者メールアドレス
+      // Cloudflareのシークレット名に合わせてマッピング
+      API_KEY: process.env.GEMINI_API_KEY || process.env.API_KEY,
+      ADMIN_EMAIL: process.env.ADMIN_EMAIL,
       FIREBASE_API_KEY: process.env.FIREBASE_API_KEY,
       FIREBASE_AUTH_DOMAIN: process.env.FIREBASE_AUTH_DOMAIN,
       FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
