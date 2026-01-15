@@ -38,7 +38,6 @@ const playSFX = (type: 'correct' | 'wrong') => {
   gain.connect(ctx.destination);
 
   if (type === 'correct') {
-    // ピンポン！ (E5 -> A5)
     const playTone = (freq: number, start: number, duration: number) => {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
@@ -50,24 +49,20 @@ const playSFX = (type: 'correct' | 'wrong') => {
       osc.start(start);
       osc.stop(start + duration);
     };
-    playTone(659.25, now, 0.2); // ピン
-    playTone(880.00, now + 0.12, 0.4); // ポン！
+    playTone(659.25, now, 0.15);
+    playTone(880.00, now + 0.1, 0.3);
   } else {
-    // ブー！ (低い不協和音)
     const osc1 = ctx.createOscillator();
     const osc2 = ctx.createOscillator();
     osc1.type = 'sawtooth';
     osc2.type = 'sawtooth';
     osc1.frequency.setValueAtTime(140, now);
     osc2.frequency.setValueAtTime(146, now);
-    
     osc1.connect(gain);
     osc2.connect(gain);
-    
     gain.gain.setValueAtTime(0, now);
     gain.gain.linearRampToValueAtTime(0.15, now + 0.02);
     gain.gain.linearRampToValueAtTime(0, now + 0.5);
-    
     osc1.start(now);
     osc2.start(now);
     osc1.stop(now + 0.5);
@@ -76,14 +71,7 @@ const playSFX = (type: 'correct' | 'wrong') => {
 };
 
 const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onComplete, onViewWord, onCancel }) => {
-  const [currentIndex, setCurrentIndex] = useState(initialResult ? config.count - 1 : 0);
-  const [userAnswers, setUserAnswers] = useState<number[]>(initialResult ? initialResult.userAnswers : []);
-  const [isFinished, setIsFinished] = useState(!!initialResult);
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
-  const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState(config.soundEnabled);
-
-  const quizData = useMemo(() => {
+  const [quizData] = useState<QuizQuestion[]>(() => {
     if (initialResult) return initialResult.questions;
     if (!words || words.length === 0) return [];
     
@@ -124,12 +112,26 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onCom
       }
       return { word, type, questionText, options, correctIndex: options.indexOf(correctValue) } as QuizQuestion;
     });
-  }, [words, config, initialResult]);
+  });
+
+  const [currentIndex, setCurrentIndex] = useState(initialResult ? initialResult.userAnswers.length : 0);
+  const [userAnswers, setUserAnswers] = useState<number[]>(initialResult ? initialResult.userAnswers : []);
+  const [isFinished, setIsFinished] = useState(false);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(config.soundEnabled);
+  const isTransitioning = useRef(false);
+
+  useEffect(() => {
+    if (initialResult && initialResult.userAnswers.length >= quizData.length) {
+      setIsFinished(true);
+    }
+  }, [initialResult, quizData.length]);
 
   const handleAnswer = (index: number) => {
-    if (selectedIdx !== null || quizData.length === 0) return;
+    if (isTransitioning.current || selectedIdx !== null || quizData.length === 0 || isFinished) return;
     
-    // ユーザー操作の起点でAudioを初期化
+    isTransitioning.current = true;
     initAudio();
 
     setSelectedIdx(index);
@@ -139,78 +141,96 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onCom
     if (soundEnabled) playSFX(isCorrect ? 'correct' : 'wrong');
 
     setTimeout(() => {
-      setUserAnswers(prev => [...prev, index]);
+      const nextAnswers = [...userAnswers, index];
+      setUserAnswers(nextAnswers);
       setSelectedIdx(null);
       setFeedback(null);
+      
       if (currentIndex < quizData.length - 1) {
         setCurrentIndex(prev => prev + 1);
+        isTransitioning.current = false;
       } else {
         setIsFinished(true);
       }
-    }, 350);
+    }, 400);
   };
 
   const results = useMemo(() => {
-    if (initialResult) return initialResult;
-    if (!isFinished) return null;
+    if (!isFinished && !initialResult) return null;
     return {
       questions: quizData,
-      userAnswers,
-      score: userAnswers.reduce((acc, ans, idx) => ans === quizData[idx].correctIndex ? acc + 1 : acc, 0),
+      userAnswers: userAnswers,
+      score: userAnswers.reduce((acc, ans, idx) => {
+        if (quizData[idx] && ans === quizData[idx].correctIndex) return acc + 1;
+        return acc;
+      }, 0),
       timestamp: Date.now()
     } as QuizResult;
   }, [isFinished, quizData, userAnswers, initialResult]);
 
-  if (quizData.length === 0 || (isFinished && results)) {
-    if (isFinished && results) {
-      return (
-        <div className="h-full bg-slate-50 flex flex-col p-4 md:p-6 animate-view overflow-hidden">
-          <div className="w-full max-w-2xl mx-auto flex-1 flex flex-col min-h-0 gap-4">
-            <div className="bg-white rounded-[2rem] p-6 flex items-center justify-between shadow-sm border border-slate-100 flex-shrink-0">
-               <div className="flex items-center gap-4">
-                 <div className="text-4xl">🏅</div>
-                 <div className="text-left">
-                   <h2 className="text-xl font-black tracking-tight text-slate-900">学習スコア</h2>
-                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Progress Saved</p>
-                 </div>
+  if (quizData.length === 0) {
+    return <div className="h-full flex items-center justify-center font-bold text-slate-400">問題を作成中...</div>;
+  }
+
+  // --- 終了画面 (振り返りリストのみスクロール可能) ---
+  if (isFinished && results) {
+    return (
+      <div className="h-full flex flex-col p-4 md:p-6 bg-slate-50 animate-view overflow-hidden">
+        <div className="w-full max-w-2xl mx-auto flex-1 flex flex-col min-h-0">
+          
+          {/* スコアヘッダー (固定) */}
+          <div className="bg-white rounded-[2rem] p-6 flex items-center justify-between shadow-sm border border-slate-100 flex-shrink-0 mb-4">
+             <div className="flex items-center gap-4">
+               <div className="text-4xl">🏅</div>
+               <div className="text-left">
+                 <h2 className="text-xl font-black tracking-tight text-slate-900">学習結果</h2>
+                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Scientific Review Active</p>
                </div>
-               <div className="flex items-center gap-1 bg-indigo-50 px-5 py-2 rounded-2xl border border-indigo-100">
-                 <p className="text-indigo-600 text-3xl font-black">{results.score}</p>
-                 <span className="text-indigo-300 text-sm font-black">/ {quizData.length}</span>
-               </div>
-            </div>
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden space-y-2">
-               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">振り返り</h3>
-               <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-y-auto custom-scrollbar divide-y divide-slate-50 flex-1">
-                 {results.questions.map((q, idx) => {
-                   const isCorrect = results.userAnswers[idx] === q.correctIndex;
-                   return (
-                     <div key={idx} onClick={() => onViewWord(q.word, results)} className="p-5 flex items-center justify-between hover:bg-slate-50 transition cursor-pointer group">
-                       <div className="flex items-center gap-4 flex-1">
-                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ${isCorrect ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
-                           {isCorrect ? '✓' : '×'}
-                         </div>
-                         <div className="min-w-0">
-                           <p className="font-black text-slate-800 text-sm group-hover:text-indigo-600 transition">{q.word.term}</p>
-                           <p className="text-[9px] font-bold text-slate-300 uppercase">{q.word.meaning}</p>
-                         </div>
+             </div>
+             <div className="flex items-center gap-1 bg-indigo-50 px-5 py-2 rounded-2xl border border-indigo-100">
+               <p className="text-indigo-600 text-3xl font-black">{results.score}</p>
+               <span className="text-indigo-300 text-sm font-black">/ {quizData.length}</span>
+             </div>
+          </div>
+
+          {/* 振り返りリストエリア (スクロール可能) */}
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden mb-4">
+             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">間違えた問題・振り返り</h3>
+             <div className="flex-1 bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-y-auto custom-scrollbar divide-y divide-slate-50">
+               {results.questions.map((q, idx) => {
+                 const isCorrect = results.userAnswers[idx] === q.correctIndex;
+                 return (
+                   <div key={idx} onClick={() => onViewWord(q.word, results)} className="p-5 flex items-center justify-between hover:bg-slate-50 transition cursor-pointer group">
+                     <div className="flex items-center gap-4 flex-1">
+                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ${isCorrect ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
+                         {isCorrect ? '✓' : '×'}
                        </div>
-                       <div className="text-right">
-                         <p className={`text-[10px] font-black ${isCorrect ? 'text-emerald-500' : 'text-rose-500'}`}>
-                           {isCorrect ? 'Perfect' : 'Review'}
-                         </p>
+                       <div className="min-w-0">
+                         <p className="font-black text-slate-800 text-sm group-hover:text-indigo-600 transition">{q.word.term}</p>
+                         <p className="text-[9px] font-bold text-slate-300 uppercase truncate">{q.word.meaning}</p>
                        </div>
                      </div>
-                   );
-                 })}
-               </div>
-            </div>
-            <button onClick={() => onComplete(results)} className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black shadow-xl hover:bg-black hover:scale-[1.02] active:scale-95 transition-all bounce-on-click">学習を完了してホームへ</button>
+                     <div className="text-right flex-shrink-0 ml-2">
+                       <p className={`text-[10px] font-black ${isCorrect ? 'text-emerald-500' : 'text-rose-500'}`}>
+                         {isCorrect ? 'OK' : 'Review'}
+                       </p>
+                     </div>
+                   </div>
+                 );
+               })}
+             </div>
           </div>
+
+          {/* アクションボタン (フッター固定) */}
+          <button 
+            onClick={() => onComplete(results)} 
+            className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black shadow-xl hover:bg-black hover:scale-[1.01] active:scale-95 transition-all flex-shrink-0"
+          >
+            学習を完了してダッシュボードへ
+          </button>
         </div>
-      );
-    }
-    return <div className="p-10 text-center font-bold text-slate-400">対象の単語がありません</div>;
+      </div>
+    );
   }
 
   const currentQ = quizData[currentIndex];
@@ -232,7 +252,6 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onCom
                 setSoundEnabled(!soundEnabled);
               }}
               className={`p-2 rounded-lg transition-colors ${soundEnabled ? 'text-indigo-600' : 'text-slate-300'}`}
-              title="サウンド切替"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 {soundEnabled ? (
@@ -292,7 +311,7 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onCom
                 <button 
                   key={`${currentIndex}-${idx}`} 
                   onClick={() => handleAnswer(idx)} 
-                  disabled={selectedIdx !== null}
+                  disabled={selectedIdx !== null || isFinished}
                   className={`w-full py-4 px-6 rounded-[1.5rem] text-base font-black transition-all duration-200 bounce-on-click flex items-center justify-between ${btnClass} will-change-transform`}
                 >
                   <span className="flex-1 text-center">{option}</span>

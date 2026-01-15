@@ -22,7 +22,8 @@ import {
   saveWordToDB,
   getAdminEmail,
   fetchUserStats,
-  saveUserStats
+  saveUserStats,
+  fetchWordFromDB
 } from './services/firebaseService';
 import { User } from 'firebase/auth';
 
@@ -135,7 +136,6 @@ const App: React.FC = () => {
     if (loadedStats) {
       setStats(loadedStats);
     } else if (currentUser) {
-      // ログイン後の初回アクセスなら、現在のstatsを保存
       await saveUserStats(currentUser.uid, stats);
     }
 
@@ -172,15 +172,20 @@ const App: React.FC = () => {
   const grantRewards = useCallback(async (newWords: Word[]) => {
     let earnedCoins = 0;
     let earnedXp = 0;
+
     newWords.forEach(w => {
+      if (w.lastWasCorrect) {
+        earnedCoins += 10;
+        earnedXp += 20;
+      } else {
+        earnedXp += 5;
+      }
       const isNewlyMastered = (w.masteryCount || 0) >= 4 && !w.rewardClaimed;
       if (isNewlyMastered) {
         earnedCoins += 100;
         earnedXp += 200;
         w.rewardClaimed = true;
         w.isMastered = true;
-      } else {
-        earnedXp += 15;
       }
     });
 
@@ -225,11 +230,9 @@ const App: React.FC = () => {
             w.streak = (w.streak || 0) + 1;
             w.lastWasCorrect = true;
             w.difficultyScore = Math.max(0, (w.difficultyScore || 0) - 10);
-            
             const intervals = [0.5, 1, 3, 7, 14, 30];
             const days = intervals[Math.min(w.masteryCount, intervals.length - 1)];
             w.nextReviewDate = Date.now() + days * 24 * 60 * 60 * 1000;
-            
             if (w.masteryCount >= 4) w.isMastered = true;
           } else {
             w.streak = 0;
@@ -268,6 +271,26 @@ const App: React.FC = () => {
     if (selectedLevel === 'ALL') return words;
     return words.filter(w => w.level === selectedLevel);
   }, [words, selectedLevel]);
+
+  const handleSelectSynonym = async (t: string) => {
+    // 1. ローカルの words から探す
+    const foundLocal = words.find(w => w.term.toLowerCase() === t.toLowerCase());
+    if (foundLocal) {
+      setCurrentWord(foundLocal);
+      navigateTo('detail');
+      return;
+    }
+
+    // 2. ローカルにない場合、Firebaseの全グローバル単語から探す
+    const foundInDB = await fetchWordFromDB(t);
+    if (foundInDB) {
+      setCurrentWord(foundInDB);
+      navigateTo('detail');
+    } else {
+      // 3. どこにも見つからない場合はアラートを表示し、AI解析には回さない（API節約）
+      alert(`「${t}」は現在の全単語帳に見つかりませんでした。`);
+    }
+  };
 
   if (!isAppReady) {
     return (
@@ -351,10 +374,7 @@ const App: React.FC = () => {
           }} onBack={goBack} />}
           {view === 'level_preview' && <LevelWordListView level={selectedLevel as any} words={quizPool} onStartQuiz={(config) => { setActiveQuizResult(null); setQuizConfig(config); navigateTo('quiz'); }} onBack={goBack} onViewWord={(w) => { setCurrentWord(w); navigateTo('detail'); }} />}
           {view === 'quiz' && <QuizView words={quizPool} config={quizConfig} initialResult={activeQuizResult} onComplete={(r) => { saveQuizResults(r); resetToDashboard(); }} onViewWord={(w, r) => { saveQuizResults(r); setActiveQuizResult(r); setCurrentWord(w); navigateTo('detail'); }} onCancel={goBack} />}
-          {view === 'detail' && currentWord && <WordDetailView word={currentWord} allWords={words} onUpdate={handleUpdateWord} onBack={goBack} onSelectSynonym={(t) => { 
-            const found = words.find(w => w.term.toLowerCase() === t.toLowerCase());
-            if (found) setCurrentWord(found);
-          }} />}
+          {view === 'detail' && currentWord && <WordDetailView word={currentWord} allWords={words} onUpdate={handleUpdateWord} onBack={goBack} onSelectSynonym={handleSelectSynonym} />}
           {view === 'admin' && isAdmin && (
             <AdminView 
               onImport={async (ws) => { 
