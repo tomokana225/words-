@@ -224,6 +224,7 @@ const App: React.FC = () => {
   }
 
   const hideNav = view === 'quiz' || view === 'welcome';
+  const isNoScrollView = view === 'dashboard' || view === 'quiz';
 
   const navItems = [
     { id: 'dashboard', label: 'ホーム', icon: <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/> },
@@ -276,13 +277,13 @@ const App: React.FC = () => {
         </nav>
       )}
 
-      <main className={`flex-1 w-full max-w-4xl mx-auto px-4 lg:px-8 ${hideNav ? 'pt-0' : 'pt-6 lg:pt-10'} pb-24 overflow-y-auto h-screen custom-scrollbar relative`}>
+      <main className={`flex-1 w-full max-w-4xl mx-auto px-4 lg:px-8 ${hideNav ? 'pt-0' : 'pt-6 lg:pt-10'} ${isNoScrollView ? 'h-screen overflow-hidden' : 'pb-24 overflow-y-auto h-screen custom-scrollbar'} relative`}>
         {/* 左スワイプヒント（オプション） */}
         {!hideNav && history.length > 1 && (
           <div className="hidden lg:block fixed left-64 top-1/2 -translate-y-1/2 w-4 h-24 bg-indigo-50/30 rounded-r-full border-r border-indigo-100 pointer-events-none opacity-0 hover:opacity-100 transition-opacity"></div>
         )}
 
-        <div className="animate-view">
+        <div className={`animate-view ${isNoScrollView ? 'h-full flex flex-col' : ''}`}>
           {view === 'welcome' && <WelcomeView onLogin={loginWithGoogle} onGuest={() => navigateTo('dashboard')} />}
           {view === 'dashboard' && <Dashboard user={user} stats={stats} words={words} onSelectLevel={(l) => { setSelectedLevel(l as any); navigateTo('level_preview'); }} onViewWord={(w) => { setCurrentWord(w); navigateTo('detail'); }} onGoShop={() => navigateTo('shop')} />}
           {view === 'wordbook' && <CourseSelectionView onSelect={(l) => { setSelectedLevel(l); navigateTo('level_preview'); }} onLogin={loginWithGoogle} onBack={goBack} />}

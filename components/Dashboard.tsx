@@ -30,9 +30,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, stats, words, onSelectLevel
   const currentLevelXp = stats.xp % 100;
 
   return (
-    <div className="flex flex-col h-full space-y-4 pb-4">
+    <div className="flex flex-col h-full space-y-4 pb-20 lg:pb-6 overflow-hidden">
       {/* 1. ステータスバー (XP / Coins / Time) */}
-      <div className="bg-white px-4 py-3 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+      <div className="bg-white px-4 py-3 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3 flex-1">
           <div className="relative">
             <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-indigo-100 shadow-lg">
@@ -60,11 +60,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, stats, words, onSelectLevel
       </div>
 
       {/* 2. プロフィール概要 */}
-      <div className="flex items-center justify-between px-1">
+      <div className="flex items-center justify-between px-1 flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="relative">
             <img 
-              src={stats.activeAvatar || user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'guest'}`} 
+              src={stats.activeAvatar} 
               className="w-12 h-12 rounded-full border-2 border-white shadow-md bg-slate-100"
               alt="User"
             />
@@ -79,7 +79,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, stats, words, onSelectLevel
       </div>
 
       {/* 3. メイン要約エリア */}
-      <div className="grid grid-cols-2 gap-3 h-[150px]">
+      <div className="grid grid-cols-2 gap-3 h-[130px] flex-shrink-0">
         {/* 進捗カード */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div>
@@ -114,7 +114,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, stats, words, onSelectLevel
       </div>
 
       {/* 4. 学習レベル */}
-      <div className="space-y-3">
+      <div className="space-y-3 flex-shrink-0">
         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">英検レベル</h3>
         <div className="grid grid-cols-3 gap-2">
           {levels.map((level) => (
@@ -141,23 +141,27 @@ const Dashboard: React.FC<DashboardProps> = ({ user, stats, words, onSelectLevel
         </div>
       </div>
 
-      {/* 5. 最近の成果 */}
-      <div className="flex-1 min-h-0 flex flex-col">
+      {/* 5. 最近の成果 - ここだけスクロール可能に */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1 mb-2">最近学習した単語</h3>
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-1">
-          {words.slice(-3).reverse().map((word, i) => (
-            <div 
-              key={word.id} 
-              onClick={() => onViewWord(word)}
-              className={`px-4 py-2.5 flex items-center justify-between hover:bg-slate-50 transition cursor-pointer ${i !== 2 ? 'border-b border-slate-100' : ''}`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-1.5 h-1.5 rounded-full ${word.isMastered ? 'bg-emerald-500 shadow-sm' : 'bg-rose-400'}`}></div>
-                <span className="text-sm font-bold text-slate-700">{word.term}</span>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-y-auto custom-scrollbar flex-1">
+          {words.length > 0 ? (
+            words.slice(-10).reverse().map((word, i, arr) => (
+              <div 
+                key={word.id} 
+                onClick={() => onViewWord(word)}
+                className={`px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition cursor-pointer ${i !== arr.length - 1 ? 'border-b border-slate-100' : ''}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-1.5 h-1.5 rounded-full ${word.isMastered ? 'bg-emerald-500 shadow-sm' : 'bg-rose-400'}`}></div>
+                  <span className="text-sm font-bold text-slate-700">{word.term}</span>
+                </div>
+                <span className="text-[10px] font-medium text-slate-400 truncate max-w-[120px]">{word.meaning}</span>
               </div>
-              <span className="text-[10px] font-medium text-slate-400 truncate max-w-[120px]">{word.meaning}</span>
-            </div>
-          ))}
+            ))
+          ) : (
+            <div className="p-10 text-center opacity-30 text-xs font-bold">まだ学習記録がありません</div>
+          )}
         </div>
       </div>
     </div>
