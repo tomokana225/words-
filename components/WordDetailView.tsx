@@ -62,36 +62,48 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, allWords, onUpdat
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 space-y-6">
         <div className="max-w-2xl mx-auto space-y-6 pb-20">
           
-          <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-            <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <div className="space-y-4">
-                <div className="flex gap-2 items-center">
-                  <span className="inline-block px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-indigo-100">
-                    {word.level}
-                  </span>
-                  <div className="flex gap-1 items-center bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Mastery</span>
-                    {[1,2,3,4].map(s => (
-                      <div key={s} className={`w-2 h-2 rounded-full ${s <= (word.masteryCount || 0) ? 'bg-indigo-500 shadow-sm shadow-indigo-200' : 'bg-slate-200'}`}></div>
-                    ))}
-                  </div>
+          {/* Word Hero Section - 重なり防止のために構造を強化 */}
+          <div className="bg-white rounded-[2.5rem] p-6 md:p-10 shadow-sm border border-slate-100 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 blur-3xl opacity-50"></div>
+            <div className="relative z-10 flex flex-col gap-6">
+              
+              {/* 上部タグエリア */}
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="inline-block px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-indigo-100">
+                  {word.level}
+                </span>
+                <div className="flex gap-1 items-center bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Mastery</span>
+                  {[1,2,3,4].map(s => (
+                    <div key={s} className={`w-2 h-2 rounded-full ${s <= (word.masteryCount || 0) ? 'bg-indigo-500 shadow-[0_0_5px_rgba(79,70,229,0.4)]' : 'bg-slate-200'}`}></div>
+                  ))}
                 </div>
-                <div>
-                  <h1 className="text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none">{word.term}</h1>
-                  <div className="flex items-center gap-3 mt-2">
-                    <p className="text-sm font-bold text-slate-400 font-mono tracking-wide">{details.phonetic || '...'}</p>
+              </div>
+
+              {/* メイン単語エリア - 長い単語でも崩れないよう flex-col/row を最適化 */}
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div className="space-y-3 flex-1 min-w-0">
+                  <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-[1.1] break-all">
+                    {word.term}
+                  </h1>
+                  <div className="flex items-center gap-3">
+                    <p className="text-sm font-bold text-slate-400 font-mono tracking-wide bg-slate-50 px-2 py-0.5 rounded italic">
+                      {details.phonetic || '...'}
+                    </p>
                     <button 
                       onClick={() => handlePlay(word.term)}
-                      className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center hover:scale-110 active:scale-95 transition shadow-lg"
+                      className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center hover:scale-110 active:scale-95 transition shadow-lg flex-shrink-0"
+                      aria-label="読み上げ"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
                     </button>
                   </div>
                 </div>
-              </div>
-              <div className="text-right">
-                <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">{details.meaning || word.meaning}</h2>
+                <div className="md:text-right flex-shrink-0 bg-indigo-50/30 p-4 rounded-3xl border border-indigo-100/50 md:bg-transparent md:p-0 md:border-0">
+                  <h2 className="text-2xl md:text-3xl font-black text-indigo-700 md:text-slate-800 tracking-tight">
+                    {details.meaning || word.meaning}
+                  </h2>
+                </div>
               </div>
             </div>
           </div>
@@ -99,10 +111,11 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, allWords, onUpdat
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-40">
               <div className="w-8 h-8 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin"></div>
-              <p className="text-xs font-black uppercase tracking-widest">AI Analyzing...</p>
+              <p className="text-xs font-black uppercase tracking-widest">AI Engine Analyzing...</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* 成り立ち・コアイメージ */}
               <section className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm space-y-4 md:col-span-2">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
@@ -110,11 +123,12 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, allWords, onUpdat
                   </div>
                   <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">成り立ち・コアイメージ</h3>
                 </div>
-                <p className="text-sm font-bold text-slate-600 leading-relaxed bg-slate-50 p-5 rounded-2xl border border-slate-50">
+                <p className="text-sm font-bold text-slate-600 leading-relaxed bg-slate-50 p-5 rounded-2xl border border-slate-50/50">
                   {details.etymology}
                 </p>
               </section>
 
+              {/* 例文 */}
               <section className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm space-y-4 md:col-span-2">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-6 h-6 bg-emerald-500 rounded-lg flex items-center justify-center text-white">
@@ -122,17 +136,26 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, allWords, onUpdat
                   </div>
                   <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">例文</h3>
                 </div>
-                <div className="p-6 bg-emerald-50/50 rounded-2xl border border-emerald-100 space-y-3 relative group">
-                  <p className="text-lg font-black text-slate-800 leading-snug">{details.exampleSentence}</p>
-                  <p className="text-xs font-bold text-slate-500">{details.exampleSentenceJapanese}</p>
-                  <button onClick={() => handlePlay(details.exampleSentence)} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white text-emerald-600 flex items-center justify-center shadow-sm hover:scale-110 transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
+                <div className="p-6 bg-emerald-50/50 rounded-2xl border border-emerald-100 space-y-3 relative group overflow-hidden">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-100/30 rounded-full -mr-12 -mt-12 blur-2xl"></div>
+                  <p className="text-lg font-black text-slate-800 leading-snug relative z-10">{details.exampleSentence}</p>
+                  <p className="text-xs font-bold text-slate-500 relative z-10">{details.exampleSentenceJapanese}</p>
+                  <button 
+                    onClick={() => handlePlay(details.exampleSentence)} 
+                    className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white text-emerald-600 flex items-center justify-center shadow-md hover:scale-110 active:scale-95 transition z-20"
+                    aria-label="例文読み上げ"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
                   </button>
                 </div>
               </section>
 
+              {/* 同じ語源の仲間 */}
               <section className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm space-y-4">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">同じ語源の仲間</h3>
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
+                  同じ語源の仲間
+                </h3>
                 <div className="space-y-2">
                   {details.relatedWords?.map((rw, i) => {
                     const known = isWordKnown(rw.term);
@@ -155,8 +178,12 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, allWords, onUpdat
                 </div>
               </section>
 
+              {/* 類義語 */}
               <section className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm space-y-4">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">類義語</h3>
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                  類義語
+                </h3>
                 <div className="flex flex-wrap gap-2">
                   {details.synonyms?.map((s, i) => {
                     const known = isWordKnown(s);
