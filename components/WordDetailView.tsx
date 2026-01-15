@@ -6,18 +6,19 @@ import { fetchWordFromDB, saveWordToDB } from '../services/firebaseService';
 
 interface WordDetailViewProps {
   word: Word;
+  allWords: Word[]; // アプリに読み込まれている全単語
   onUpdate: (word: Word) => void;
   onBack: () => void;
   onSelectSynonym: (term: string) => void;
 }
 
-const WordDetailView: React.FC<WordDetailViewProps> = ({ word, onUpdate, onBack, onSelectSynonym }) => {
+const WordDetailView: React.FC<WordDetailViewProps> = ({ word, allWords, onUpdate, onBack, onSelectSynonym }) => {
   const [details, setDetails] = useState<Partial<Word>>(word.phonetic ? word : {});
   const [loading, setLoading] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
     const fetchAll = async () => {
+      // すでに詳細情報がある場合はスキップ
       if (word.phonetic && word.etymology && word.meaning !== '解析中...') {
         setDetails(word);
         return;
@@ -25,23 +26,31 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, onUpdate, onBack,
       setLoading(true);
       const cached = await fetchWordFromDB(word.term);
       let finalDetails = { ...word, ...cached };
+      
+      // DBにも情報がない場合のみAIで解析
       if (!finalDetails.phonetic || !finalDetails.etymology || !finalDetails.relatedWords) {
         const aiDetails = await getWordDetails(word.term);
         finalDetails = { ...finalDetails, ...aiDetails };
       }
+      
       setDetails(finalDetails);
       setLoading(false);
+      
+      // AIで取得した情報をキャッシュ保存
       if (!cached) await saveWordToDB(finalDetails as Word);
       onUpdate(finalDetails as Word);
     };
     fetchAll();
   }, [word.id, word.term]);
 
-  const handlePlay = async (text?: string) => {
-    if (!text || isPlaying) return;
-    setIsPlaying(true);
-    await playPronunciation(text);
-    setTimeout(() => setIsPlaying(false), 1000);
+  const handlePlay = (text?: string) => {
+    if (!text) return;
+    playPronunciation(text);
+  };
+
+  // 登録済み単語かどうかを判定
+  const isWordKnown = (term: string) => {
+    return allWords.some(w => w.term.toLowerCase() === term.toLowerCase());
   };
 
   return (
@@ -72,7 +81,6 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, onUpdate, onBack,
                   <p className="text-sm font-bold text-slate-400 font-mono tracking-wide">{details.phonetic || '...'}</p>
                   <button 
                     onClick={() => handlePlay(word.term)}
-                    disabled={isPlaying}
                     className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center hover:scale-110 active:scale-95 transition shadow-lg"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
@@ -129,16 +137,28 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, onUpdate, onBack,
               <section className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm space-y-4">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">同じ語源の仲間</h3>
                 <div className="space-y-2">
-                  {details.relatedWords?.map((rw, i) => (
-                    <div 
-                      key={i} 
-                      onClick={() => onSelectSynonym(rw.term)}
-                      className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-indigo-300 hover:bg-indigo-50 transition cursor-pointer group"
-                    >
-                      <span className="text-sm font-black text-slate-700 group-hover:text-indigo-600">{rw.term}</span>
-                      <span className="text-[10px] font-bold text-slate-400">{rw.meaning}</span>
-                    </div>
-                  ))}
+                  {details.relatedWords?.map((rw, i) => {
+                    const known = isWordKnown(rw.term);
+                    return (
+                      <div 
+                        key={i} 
+                        onClick={() => known && onSelectSynonym(rw.term)}
+                        className={`flex items-center justify-between p-3 rounded-xl border border-slate-100 transition group ${known ? 'hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer' : 'opacity-60 grayscale cursor-default'}`}
+                      >
+                        <div className="flex flex-col">
+                          <span className={`text-sm font-black ${known ? 'text-slate-700 group-hover:text-indigo-600' : 'text-slate-400'}`}>
+                            {rw.term} {!known && <span className="text-[8px] opacity-40">(未登録)</span>}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400">{rw.meaning}</span>
+                        </div>
+                        {known && (
+                          <div className="text-slate-200 group-hover:text-indigo-300 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
 
@@ -146,15 +166,22 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, onUpdate, onBack,
               <section className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm space-y-4">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">類義語</h3>
                 <div className="flex flex-wrap gap-2">
-                  {details.synonyms?.map((s, i) => (
-                    <button 
-                      key={i} 
-                      onClick={() => onSelectSynonym(s)}
-                      className="px-4 py-2 bg-slate-50 hover:bg-white border border-slate-100 hover:border-indigo-200 rounded-xl text-xs font-black text-slate-600 transition bounce-on-click"
-                    >
-                      {s}
-                    </button>
-                  ))}
+                  {details.synonyms?.map((s, i) => {
+                    const known = isWordKnown(s);
+                    return (
+                      <button 
+                        key={i} 
+                        onClick={() => known && onSelectSynonym(s)}
+                        className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+                          known 
+                            ? 'bg-slate-50 hover:bg-white border border-slate-100 hover:border-indigo-200 text-slate-600 bounce-on-click' 
+                            : 'bg-slate-50 border-transparent text-slate-300 cursor-default grayscale'
+                        }`}
+                      >
+                        {s} {!known && <span className="text-[7px] opacity-40 ml-1">×</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </section>
             </div>

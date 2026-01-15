@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { EikenLevel, Word, QuizResult, UserStats, ShopItem } from './types';
+import { EikenLevel, Word, QuizResult, UserStats } from './types';
 import Dashboard from './components/Dashboard';
 import QuizView from './components/QuizView';
 import WordDetailView from './components/WordDetailView';
@@ -56,10 +56,8 @@ const App: React.FC = () => {
   }, []);
 
   const resetToDashboard = useCallback(() => {
-    // 履歴を完全に上書きして「戻る」でクイズ画面に行かないようにする
     setHistory(['dashboard']);
     setView('dashboard');
-    // ブラウザの履歴も操作（SPA内の擬似的な履歴制御）
     window.history.replaceState(null, '', '/');
   }, []);
 
@@ -288,7 +286,12 @@ const App: React.FC = () => {
           {view === 'shop' && <ShopView stats={stats} onPurchase={(item) => { setStats(prev => ({ ...prev, coins: prev.coins - item.price, unlockedItems: [...prev.unlockedItems, item.id] })); }} onGacha={(items) => { setStats(prev => ({ ...prev, coins: prev.coins - 300, unlockedItems: [...prev.unlockedItems, ...items.map(i => i.id)] })); }} onBack={goBack} />}
           {view === 'level_preview' && <LevelWordListView level={selectedLevel as any} words={quizPool} onStartQuiz={() => navigateTo('quiz')} onBack={goBack} onViewWord={(w) => { setCurrentWord(w); navigateTo('detail'); }} />}
           {view === 'quiz' && <QuizView words={quizPool} onComplete={(r) => { saveQuizResults(r); resetToDashboard(); }} onViewWord={(w, r) => { saveQuizResults(r); setCurrentWord(w); navigateTo('detail'); }} onCancel={goBack} />}
-          {view === 'detail' && currentWord && <WordDetailView word={currentWord} onUpdate={handleUpdateWord} onBack={goBack} onSelectSynonym={(t) => { setCurrentWord({ id: `syn-${Date.now()}`, term: t, meaning: '解析中...', level: EikenLevel.GRADE_3 }); }} />}
+          {view === 'detail' && currentWord && <WordDetailView word={currentWord} allWords={words} onUpdate={handleUpdateWord} onBack={goBack} onSelectSynonym={(t) => { 
+            const found = words.find(w => w.term.toLowerCase() === t.toLowerCase());
+            if (found) {
+              setCurrentWord(found);
+            }
+          }} />}
           {view === 'admin' && isAdmin && (
             <AdminView 
               onImport={async (ws) => { 

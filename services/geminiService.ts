@@ -1,5 +1,5 @@
 
-import { GenerateContentResponse, Type, Modality } from "@google/genai";
+import { GenerateContentResponse, Type } from "@google/genai";
 import { Word } from "../types";
 
 // サーバーサイド・プロキシ経由でGeminiを呼び出す汎用関数
@@ -19,56 +19,15 @@ const callGeminiProxy = async (payload: any) => {
   return await response.json() as GenerateContentResponse;
 };
 
-// Audio Decoding Helper
-async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer);
-  const frameCount = dataInt16.length / numChannels;
-  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-  for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-    }
-  }
-  return buffer;
-}
-
-function decodeBase64(base64: string) {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
-
-export const playPronunciation = async (text: string) => {
-  try {
-    const response = await callGeminiProxy({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: `Read this English phrase naturally: ${text}` }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Kore' },
-          },
-        },
-      },
-    });
-
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) return;
-
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    const audioBuffer = await decodeAudioData(decodeBase64(base64Audio), audioCtx, 24000, 1);
-    const source = audioCtx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(audioCtx.destination);
-    source.start();
-  } catch (error) {
-    console.error("TTS Error via Proxy:", error);
-  }
+// ブラウザ標準のWeb Speech APIを使用した高速な音声読み上げ
+export const playPronunciation = (text: string) => {
+  if (!window.speechSynthesis) return;
+  // すでに再生中の音声を停止
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'en-US';
+  utterance.rate = 0.9; // 少しゆっくりめで聞き取りやすく
+  window.speechSynthesis.speak(utterance);
 };
 
 export const getWordDetails = async (term: string): Promise<Partial<Word>> => {
