@@ -20,7 +20,7 @@ import {
   User,
   Auth
 } from "firebase/auth";
-import { Word, EikenLevel } from "../types";
+import { Word, EikenLevel, UserStats } from "../types";
 
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
@@ -58,7 +58,6 @@ export const isFirebaseReady = () => !!app;
 
 export const initializeFirebase = async () => {
   try {
-    // キャッシュやブラウザ設定により fetch が SecurityError を投げる場合も考慮
     const response = await fetch('/api/config').catch(() => null);
     
     if (!response || !response.ok) {
@@ -115,6 +114,7 @@ export const loginWithGoogle = async () => {
 export const logout = async () => {
   if (auth) await signOut(auth);
   safeStorage.removeItem('eiken_mock_user');
+  safeStorage.removeItem('eiken_local_stats');
   window.location.reload();
 };
 
@@ -125,11 +125,41 @@ export const onAuthChange = (callback: (user: User | null) => void) => {
   return () => {};
 };
 
+// --- User Stats persistence ---
+
+export const fetchUserStats = async (userId: string): Promise<UserStats | null> => {
+  if (!db) {
+    const local = safeStorage.getItem('eiken_local_stats');
+    return local ? JSON.parse(local) : null;
+  }
+  try {
+    const snap = await getDoc(doc(db, "users", userId));
+    return snap.exists() ? (snap.data() as UserStats) : null;
+  } catch (e) {
+    console.error("Fetch Stats Error:", e);
+    return null;
+  }
+};
+
+export const saveUserStats = async (userId: string, stats: UserStats) => {
+  if (!db) {
+    safeStorage.setItem('eiken_local_stats', JSON.stringify(stats));
+    return;
+  }
+  try {
+    await setDoc(doc(db, "users", userId), stats, { merge: true });
+  } catch (e) {
+    console.error("Save Stats Error:", e);
+  }
+};
+
+// --- Word Data persistence ---
+
 export const fetchGlobalWords = async (): Promise<Word[]> => {
   if (!db) return MOCK_VOCABULARY;
   try {
     const colRef = collection(db, "global_vocabulary");
-    const snap = await getDocs(query(colRef, limit(500)));
+    const snap = await getDocs(query(colRef, limit(1000)));
     const words = snap.docs.map(d => d.data() as Word);
     return words.length > 0 ? words : MOCK_VOCABULARY;
   } catch { return MOCK_VOCABULARY; }
@@ -147,7 +177,8 @@ export const saveUserWordProgress = async (userId: string, word: Word) => {
   if (!db) return;
   try {
     const ref = doc(db, "users", userId, "progress", word.term.toLowerCase());
-    await setDoc(ref, { ...word, lastUpdated: Date.now() }, { merge: true });
+    const { id, ...data } = word; // idはドキュメント名に使う
+    await setDoc(ref, { ...data, lastUpdated: Date.now() }, { merge: true });
   } catch (e) { console.error(e); }
 };
 

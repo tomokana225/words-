@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { EikenLevel, Word, QuizResult, UserStats, MasteryStatus, QuizType } from './types';
+import { EikenLevel, Word, QuizResult, UserStats, MasteryStatus, QuizType, ShopItem } from './types';
 import Dashboard from './components/Dashboard';
 import QuizView from './components/QuizView';
 import WordDetailView from './components/WordDetailView';
@@ -20,7 +20,9 @@ import {
   fetchGlobalWords,
   saveUserWordProgress,
   saveWordToDB,
-  getAdminEmail
+  getAdminEmail,
+  fetchUserStats,
+  saveUserStats
 } from './services/firebaseService';
 import { User } from 'firebase/auth';
 
@@ -36,7 +38,7 @@ const App: React.FC = () => {
     count: 10,
     soundEnabled: true 
   });
-  const [activeQuizResult, setActiveQuizResult] = useState<QuizResult | null>(null); // クイズ結果を保持
+  const [activeQuizResult, setActiveQuizResult] = useState<QuizResult | null>(null);
   const [history, setHistory] = useState<string[]>(['dashboard']);
 
   const touchStartX = useRef<number>(0);
@@ -56,6 +58,14 @@ const App: React.FC = () => {
     return user?.email && adminEmail && user.email === adminEmail;
   }, [user]);
 
+  // クラウド同期用ヘルパー
+  const syncStats = useCallback(async (newStats: UserStats, targetUser: User | null = user) => {
+    setStats(newStats);
+    if (targetUser) {
+      await saveUserStats(targetUser.uid, newStats);
+    }
+  }, [user]);
+
   const navigateTo = useCallback((newView: any) => {
     setHistory(prev => [...prev, newView]);
     setView(newView);
@@ -67,7 +77,7 @@ const App: React.FC = () => {
   const resetToDashboard = useCallback(() => {
     setHistory(['dashboard']);
     setView('dashboard');
-    setActiveQuizResult(null); // ホームに戻る時はリセット
+    setActiveQuizResult(null);
     window.history.replaceState({ view: 'dashboard' }, '', '/');
   }, []);
 
@@ -120,32 +130,39 @@ const App: React.FC = () => {
     };
   }, [view, goBack]);
 
-  const refreshWords = useCallback(async (currentUser: User | null) => {
+  const refreshData = useCallback(async (currentUser: User | null) => {
     const globals = await fetchGlobalWords();
     if (currentUser) {
-      const userProgress = await fetchUserWords(currentUser.uid);
+      const [userProgress, userStats] = await Promise.all([
+        fetchUserWords(currentUser.uid),
+        fetchUserStats(currentUser.uid)
+      ]);
+
       const merged = globals.map(gw => {
         const progress = userProgress.find(uw => uw.term.toLowerCase() === gw.term.toLowerCase());
         return progress ? { ...gw, ...progress } : gw;
       });
       setWords(merged);
-      const masteredCount = merged.filter(w => (w.masteryCount || 0) >= 4).length;
-      setStats(prev => ({
-        ...prev,
-        xp: masteredCount * 100 + (merged.length * 10),
-        level: Math.floor(Math.sqrt((masteredCount * 100) / 100)) + 1,
-      }));
+
+      if (userStats) {
+        setStats(userStats);
+      } else {
+        // 新規ユーザーの場合、現在の初期値を保存
+        await saveUserStats(currentUser.uid, stats);
+      }
     } else {
       setWords(globals);
+      const localStats = await fetchUserStats(""); // ゲスト用
+      if (localStats) setStats(localStats);
     }
-  }, []);
+  }, [stats]);
 
   useEffect(() => {
     const init = async () => {
       await initializeFirebase();
       const unsubscribe = onAuthChange(async (fbUser) => {
         setUser(fbUser);
-        await refreshWords(fbUser);
+        await refreshData(fbUser);
         if (fbUser || localStorage.getItem('eiken_mock_user')) {
           if (view === 'welcome') resetToDashboard();
         } else {
@@ -156,9 +173,9 @@ const App: React.FC = () => {
       return () => unsubscribe();
     };
     init();
-  }, [refreshWords, resetToDashboard]);
+  }, [refreshData, resetToDashboard]);
 
-  const grantRewards = useCallback((newWords: Word[]) => {
+  const grantRewards = useCallback(async (newWords: Word[]) => {
     let earnedCoins = 0;
     let earnedXp = 0;
     newWords.forEach(w => {
@@ -172,15 +189,17 @@ const App: React.FC = () => {
         earnedXp += 15;
       }
     });
+
     if (earnedCoins > 0 || earnedXp > 0) {
-      setStats(prev => ({
-        ...prev,
-        xp: prev.xp + earnedXp,
-        coins: prev.coins + earnedCoins,
-        level: Math.floor(Math.sqrt((prev.xp + earnedXp) / 100)) + 1
-      }));
+      const newStats = {
+        ...stats,
+        xp: stats.xp + earnedXp,
+        coins: stats.coins + earnedCoins,
+        level: Math.floor(Math.sqrt((stats.xp + earnedXp) / 100)) + 1
+      };
+      await syncStats(newStats);
     }
-  }, []);
+  }, [stats, syncStats]);
 
   const handleUpdateWord = useCallback(async (updated: Word) => {
     setWords(prev => {
@@ -323,11 +342,19 @@ const App: React.FC = () => {
         <div className={`animate-view ${isNoScrollView ? 'h-full flex flex-col' : ''}`}>
           {view === 'welcome' && <WelcomeView onLogin={loginWithGoogle} onGuest={() => resetToDashboard()} />}
           {view === 'dashboard' && <Dashboard user={user} stats={stats} words={words} onSelectLevel={(l) => { setSelectedLevel(l as any); navigateTo('level_preview'); }} onViewWord={(w) => { setCurrentWord(w); navigateTo('detail'); }} onGoShop={() => navigateTo('shop')} />}
-          {/* Fix: Replaced undefined variable 'onBack' with 'goBack' */}
           {view === 'wordbook' && <CourseSelectionView onSelect={(l) => { setSelectedLevel(l); navigateTo('level_preview'); }} onLogin={loginWithGoogle} onBack={goBack} />}
           {view === 'diagnosis' && <DiagnosisView onCancel={goBack} />}
-          {view === 'mypage' && <MyPageView user={user} stats={stats} words={words} onLogout={logout} onLogin={loginWithGoogle} onAdmin={() => navigateTo('admin')} isAdmin={isAdmin} onBack={goBack} onSelectItem={(id) => setStats(prev => ({...prev, activeAvatar: id}))} />}
-          {view === 'shop' && <ShopView stats={stats} onPurchase={(item) => { setStats(prev => ({ ...prev, coins: prev.coins - item.price, unlockedItems: [...prev.unlockedItems, item.id] })); }} onGacha={(items) => { setStats(prev => ({ ...prev, coins: prev.coins - 300, unlockedItems: [...prev.unlockedItems, ...items.map(i => i.id)] })); }} onBack={goBack} />}
+          {view === 'mypage' && <MyPageView user={user} stats={stats} words={words} onLogout={logout} onLogin={loginWithGoogle} onAdmin={() => navigateTo('admin')} isAdmin={isAdmin} onBack={goBack} onSelectItem={async (id) => {
+            const newStats = { ...stats, activeAvatar: id };
+            await syncStats(newStats);
+          }} />}
+          {view === 'shop' && <ShopView stats={stats} onPurchase={async (item) => { 
+            const newStats = { ...stats, coins: stats.coins - item.price, unlockedItems: [...stats.unlockedItems, item.id] };
+            await syncStats(newStats);
+          }} onGacha={async (items) => { 
+            const newStats = { ...stats, coins: stats.coins - 300, unlockedItems: [...stats.unlockedItems, ...items.map(i => i.id)] };
+            await syncStats(newStats);
+          }} onBack={goBack} />}
           {view === 'level_preview' && <LevelWordListView level={selectedLevel as any} words={quizPool} onStartQuiz={(config) => { setActiveQuizResult(null); setQuizConfig(config); navigateTo('quiz'); }} onBack={goBack} onViewWord={(w) => { setCurrentWord(w); navigateTo('detail'); }} />}
           {view === 'quiz' && <QuizView words={quizPool} config={quizConfig} initialResult={activeQuizResult} onComplete={(r) => { saveQuizResults(r); resetToDashboard(); }} onViewWord={(w, r) => { saveQuizResults(r); setActiveQuizResult(r); setCurrentWord(w); navigateTo('detail'); }} onCancel={goBack} />}
           {view === 'detail' && currentWord && <WordDetailView word={currentWord} allWords={words} onUpdate={handleUpdateWord} onBack={goBack} onSelectSynonym={(t) => { 
@@ -338,7 +365,7 @@ const App: React.FC = () => {
             <AdminView 
               onImport={async (ws) => { 
                 for (const w of ws) await saveWordToDB(w);
-                await refreshWords(user);
+                await refreshData(user);
               }} 
               onCancel={goBack} 
             />
