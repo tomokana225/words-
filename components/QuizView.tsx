@@ -172,7 +172,7 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onCom
     return <div className="h-full flex items-center justify-center font-bold text-slate-400">問題を作成中...</div>;
   }
 
-  // --- 終了画面 (振り返りリストのみスクロール可能) ---
+  // --- 終了画面 (結果表示) ---
   if (isFinished && results) {
     return (
       <div className="h-full flex flex-col p-4 md:p-6 bg-slate-50 animate-view overflow-hidden">
@@ -193,7 +193,7 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onCom
              </div>
           </div>
 
-          {/* 振り返りリストエリア (スクロール可能) */}
+          {/* 振り返りリストエリア (ここだけスクロール可能) */}
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden mb-4">
              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">間違えた問題・振り返り</h3>
              <div className="flex-1 bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-y-auto custom-scrollbar divide-y divide-slate-50">
@@ -224,7 +224,7 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onCom
           {/* アクションボタン (フッター固定) */}
           <button 
             onClick={() => onComplete(results)} 
-            className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black shadow-xl hover:bg-black hover:scale-[1.01] active:scale-95 transition-all flex-shrink-0"
+            className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black shadow-xl hover:bg-black transition-all flex-shrink-0"
           >
             学習を完了してダッシュボードへ
           </button>
@@ -233,7 +233,7 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onCom
     );
   }
 
-  // クイズ実行中のガード: currentIndexが範囲外の場合は何も表示しない
+  // クイズ実行中のガード
   const currentQ = quizData[currentIndex];
   if (!currentQ) return null;
 
@@ -284,9 +284,9 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onCom
             <h2 className={`font-black text-slate-900 tracking-tighter leading-tight mx-auto max-w-lg ${currentQ.type === 'sentenceFillIn' ? 'text-2xl md:text-3xl lg:text-4xl' : 'text-5xl md:text-7xl'}`}>
               {currentQ.questionText}
             </h2>
-            {currentQ.type === 'sentenceFillIn' && (
+            {currentQ.type === 'sentenceFillIn' && currentQ.word && (
               <div className="bg-indigo-50/30 p-4 rounded-2xl border border-indigo-50/50 mt-4 max-w-md mx-auto">
-                <p className="text-xs font-bold text-slate-500 italic">"{currentQ.word?.exampleSentenceJapanese}"</p>
+                <p className="text-xs font-bold text-slate-500 italic">"{currentQ.word.exampleSentenceJapanese}"</p>
               </div>
             )}
           </div>
@@ -317,16 +317,6 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onCom
                   className={`w-full py-4 px-6 rounded-[1.5rem] text-base font-black transition-all duration-200 bounce-on-click flex items-center justify-between ${btnClass} will-change-transform`}
                 >
                   <span className="flex-1 text-center">{option}</span>
-                  <div className="w-6 flex items-center justify-center">
-                    {selectedIdx !== null && isSelected && (
-                      <span className="animate-in zoom-in">
-                        {feedback === 'correct' ? '✓' : '×'}
-                      </span>
-                    )}
-                    {selectedIdx !== null && isCorrectIdx && !isSelected && (
-                      <span className="text-emerald-500 text-sm">✓</span>
-                    )}
-                  </div>
                 </button>
               );
             })}

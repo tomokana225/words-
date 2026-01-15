@@ -273,21 +273,17 @@ const App: React.FC = () => {
   }, [words, selectedLevel]);
 
   const handleSelectSynonym = async (t: string) => {
-    // 1. ローカルの words から探す
     const foundLocal = words.find(w => w.term.toLowerCase() === t.toLowerCase());
     if (foundLocal) {
       setCurrentWord(foundLocal);
       navigateTo('detail');
       return;
     }
-
-    // 2. ローカルにない場合、Firebaseの全グローバル単語から探す
     const foundInDB = await fetchWordFromDB(t);
     if (foundInDB) {
       setCurrentWord(foundInDB);
       navigateTo('detail');
     } else {
-      // 3. どこにも見つからない場合はアラートを表示し、AI解析には回さない（API節約）
       alert(`「${t}」は現在の全単語帳に見つかりませんでした。`);
     }
   };
@@ -302,7 +298,7 @@ const App: React.FC = () => {
   }
 
   const hideNav = view === 'quiz' || view === 'welcome' || view === 'diagnosis';
-  const isNoScrollView = view === 'dashboard' || view === 'quiz';
+  const isNoScrollView = view === 'dashboard' || view === 'quiz' || view === 'diagnosis';
 
   const navItems = [
     { id: 'dashboard', label: 'ホーム', icon: <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/> },
@@ -360,7 +356,7 @@ const App: React.FC = () => {
           {view === 'welcome' && <WelcomeView onLogin={loginWithGoogle} onGuest={() => resetToDashboard()} />}
           {view === 'dashboard' && <Dashboard user={user} stats={stats} words={words} onSelectLevel={(l) => { setSelectedLevel(l as any); navigateTo('level_preview'); }} onViewWord={(w) => { setCurrentWord(w); navigateTo('detail'); }} onGoShop={() => navigateTo('shop')} />}
           {view === 'wordbook' && <CourseSelectionView onSelect={(l) => { setSelectedLevel(l); navigateTo('level_preview'); }} onLogin={loginWithGoogle} onBack={goBack} />}
-          {view === 'diagnosis' && <DiagnosisView onCancel={goBack} />}
+          {view === 'diagnosis' && <DiagnosisView words={words} onCancel={goBack} />}
           {view === 'mypage' && <MyPageView user={user} stats={stats} words={words} onLogout={logout} onLogin={loginWithGoogle} onAdmin={() => navigateTo('admin')} isAdmin={isAdmin} onBack={goBack} onSelectItem={async (id) => {
             const newStats = { ...stats, activeAvatar: id };
             await syncStats(newStats);

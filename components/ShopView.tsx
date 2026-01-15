@@ -18,9 +18,7 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
   const [gachaResult, setGachaResult] = useState<GachaItem | null>(null);
   const [showRates, setShowRates] = useState(false);
 
-  // 精細なアバター（人間系は pixel-art、動物系は bottts-neutral で人間化を回避）
   const shopItems: ShopItem[] = [
-    // --- 伝説の冒険者 (精細ドット・人間) ---
     { id: 'av-p-1', name: '聖騎士パラディン', price: 500, type: 'avatar', preview: 'https://api.dicebear.com/9.x/pixel-art/svg?seed=Paladin&flip=true' },
     { id: 'av-p-2', name: '混沌の魔導士', price: 500, type: 'avatar', preview: 'https://api.dicebear.com/9.x/pixel-art/svg?seed=Warlock' },
     { id: 'av-p-3', name: '影の暗殺者', price: 650, type: 'avatar', preview: 'https://api.dicebear.com/9.x/pixel-art/svg?seed=Assassin' },
@@ -28,7 +26,6 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
     { id: 'av-p-5', name: 'サイバー忍者', price: 800, type: 'avatar', preview: 'https://api.dicebear.com/9.x/pixel-art/svg?seed=CyberNinja' },
     { id: 'av-p-10', name: '光輝の国王', price: 2000, type: 'avatar', preview: 'https://api.dicebear.com/9.x/pixel-art/svg?seed=GrandKing' },
 
-    // --- 大自然の仲間たち (人間化を回避したアニマル造形) ---
     { id: 'av-a-1', name: '柴犬丸', price: 400, type: 'avatar', preview: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Shiba' },
     { id: 'av-a-2', name: '三毛猫ミケ', price: 400, type: 'avatar', preview: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Cat' },
     { id: 'av-a-4', name: '雪うさぎ', price: 450, type: 'avatar', preview: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Rabbit' },
@@ -36,11 +33,7 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
     { id: 'av-a-6', name: '蒼き狼', price: 800, type: 'avatar', preview: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Wolf' },
     { id: 'av-a-9', name: '百獣の王', price: 1200, type: 'avatar', preview: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Lion' },
     { id: 'av-a-10', name: 'レッサーパンダ', price: 950, type: 'avatar', preview: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=RedPanda' },
-    { id: 'av-a-11', name: '皇帝ペンギン', price: 600, type: 'avatar', preview: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Penguin' },
-    { id: 'av-a-12', name: 'ウーパールーパー', price: 850, type: 'avatar', preview: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Axolotl' },
-    { id: 'av-a-15', name: '深海のシャチ', price: 1300, type: 'avatar', preview: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Orca' },
 
-    // --- 神話・ファンタジー (究極ドット・モンスター/幻獣) ---
     { id: 'av-s-1', name: '次世代アンドロイド', price: 1500, type: 'avatar', preview: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=AndroidX' },
     { id: 'av-s-4', name: 'メタルスライム', price: 900, type: 'avatar', preview: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Slime' },
     { id: 'av-s-5', name: '聖獣ユニコーン', price: 3000, type: 'avatar', preview: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Unicorn' },
@@ -49,7 +42,6 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
   ];
 
   const gachaPool: GachaItem[] = [
-    // ガチャアイテムは変更なし
     { id: 'acc-ribbon', name: '赤いリボン', price: 0, type: 'accessory', rarity: 'N', preview: '🎀' },
     { id: 'acc-balloon', name: 'お祝い風船', price: 0, type: 'accessory', rarity: 'N', preview: '🎈' },
     { id: 'acc-medal-3', name: '3級メダル', price: 0, type: 'accessory', rarity: 'N', preview: '🥉' },
@@ -89,9 +81,9 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
   };
 
   const categories = [
-    { name: '神話・ファンタジー', items: shopItems.filter(i => i.id.startsWith('av-s')) },
-    { name: '冒険者とエキスパート', items: shopItems.filter(i => i.id.startsWith('av-p')) },
-    { name: '精細アニマル (非人間)', items: shopItems.filter(i => i.id.startsWith('av-a')) },
+    { name: 'ファンタジー', items: shopItems.filter(i => i.id.startsWith('av-s')) },
+    { name: '冒険者', items: shopItems.filter(i => i.id.startsWith('av-p')) },
+    { name: 'アニマル', items: shopItems.filter(i => i.id.startsWith('av-a')) },
   ];
 
   return (
@@ -103,7 +95,6 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
           </button>
           <div>
             <h2 className="text-xl font-bold text-slate-900 tracking-tight">ドット絵ショップ</h2>
-            <p className="text-xs font-medium text-slate-500">動物もキャラクターとして正しく表示されます</p>
           </div>
         </div>
         <div className="bg-amber-50 px-4 py-2 rounded-2xl border border-amber-100 flex items-center gap-2 shadow-sm">
@@ -114,24 +105,20 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
 
       {/* ガチャエリア */}
       <section className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl border border-white/5">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
         <div className="relative z-10 flex flex-col items-center text-center space-y-6">
           <div className="space-y-1">
-             <div className="flex items-center justify-center gap-2 mb-2">
-               <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Master Collection</span>
-             </div>
              <h3 className="text-2xl font-bold tracking-tight">ドット・マスターガチャ</h3>
-             <button onClick={() => setShowRates(!showRates)} className="text-[10px] text-indigo-400 font-bold hover:text-indigo-300 transition underline underline-offset-4">提供割合を確認する</button>
+             <button onClick={() => setShowRates(true)} className="text-[10px] text-indigo-400 font-bold hover:text-indigo-300 transition underline underline-offset-4">提供割合を確認する</button>
           </div>
           
-          <div className={`w-32 h-32 bg-white/5 rounded-[2.5rem] flex items-center justify-center border border-white/10 text-6xl shadow-inner relative group transition-all duration-500 ${gachaResult?.rarity === 'SEC' ? 'ring-4 ring-amber-400/50 scale-110' : ''}`}>
+          <div className={`w-32 h-32 bg-white/5 rounded-[2.5rem] flex items-center justify-center border border-white/10 text-6xl shadow-inner relative group transition-all duration-500`}>
             {isGachaRolling ? (
               <div className="animate-bounce">🎁</div>
             ) : gachaResult ? (
               <div className="animate-in zoom-in duration-500 flex flex-col items-center">
                 <span>{gachaResult.preview}</span>
                 <span className={`text-[8px] font-black mt-2 tracking-tighter ${getRarityColor(gachaResult.rarity)}`}>
-                  {gachaResult.rarity === 'SEC' ? 'SECRET!!' : gachaResult.rarity}
+                  {gachaResult.rarity}
                 </span>
               </div>
             ) : (
@@ -142,19 +129,44 @@ const ShopView: React.FC<ShopViewProps> = ({ stats, onPurchase, onGacha, onBack 
             )}
           </div>
 
-          <div className="space-y-3 w-full max-w-xs">
-            <button 
-              disabled={stats.coins < 300 || isGachaRolling}
-              onClick={handleRollGacha}
-              className={`w-full py-4 rounded-2xl font-bold text-base transition-all bounce-on-click flex items-center justify-center gap-3 ${
-                stats.coins >= 300 && !isGachaRolling ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-900/40' : 'bg-white/5 text-white/20 cursor-not-allowed'
-              }`}
-            >
-              300 🪙 でガチャを回す
-            </button>
-          </div>
+          <button 
+            disabled={stats.coins < 300 || isGachaRolling}
+            onClick={handleRollGacha}
+            className={`w-full max-w-xs py-4 rounded-2xl font-bold text-base transition-all bounce-on-click flex items-center justify-center gap-3 ${
+              stats.coins >= 300 && !isGachaRolling ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-900/40' : 'bg-white/5 text-white/20 cursor-not-allowed'
+            }`}
+          >
+            300 🪙 でガチャを回す
+          </button>
         </div>
       </section>
+
+      {/* 提供割合モーダル */}
+      {showRates && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowRates(false)}></div>
+          <div className="relative bg-white rounded-[2rem] p-8 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
+             <h4 className="text-xl font-black text-slate-900 mb-6">ガチャ提供割合</h4>
+             <div className="space-y-4">
+                {[
+                  { r: 'SEC', d: 'Secret', p: '2.0 %', c: 'text-amber-500' },
+                  { r: 'SR', d: 'Super Rare', p: '8.0 %', c: 'text-purple-500' },
+                  { r: 'R', d: 'Rare', p: '20.0 %', c: 'text-blue-500' },
+                  { r: 'N', d: 'Normal', p: '70.0 %', c: 'text-slate-400' }
+                ].map(row => (
+                  <div key={row.r} className="flex justify-between items-center pb-3 border-b border-slate-50">
+                     <div className="flex items-center gap-2">
+                        <span className={`${row.c} font-black`}>{row.r}</span>
+                        <span className="text-xs font-bold text-slate-500">{row.d}</span>
+                     </div>
+                     <span className="font-black text-slate-900">{row.p}</span>
+                  </div>
+                ))}
+             </div>
+             <button onClick={() => setShowRates(false)} className="w-full mt-8 py-4 bg-slate-100 text-slate-600 rounded-xl font-black text-sm">閉じる</button>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-10">
         {categories.map((cat) => (
