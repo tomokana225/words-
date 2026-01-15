@@ -94,54 +94,31 @@ const MOCK_VOCABULARY: Word[] = [
     isMastered: false,
     difficultyScore: 0,
     streak: 0
-  },
-  {
-    id: "m6",
-    term: "culture",
-    meaning: "文化",
-    level: EikenLevel.GRADE_3,
-    phonetic: "/ˈkʌltʃər/",
-    etymology: "cult (耕す) + -ure (名詞語尾)。「心を耕すこと」から転じて、教養や文化を意味するようになった。",
-    exampleSentence: "I am interested in Japanese culture.",
-    exampleSentenceJapanese: "私は日本文化に興味がある。",
-    isMastered: false,
-    difficultyScore: 0,
-    streak: 0
-  },
-  {
-    id: "m7",
-    term: "attribute",
-    meaning: "〜のせいにする、特質",
-    level: EikenLevel.GRADE_2,
-    phonetic: "/əˈtrɪbjuːt/",
-    etymology: "ad- (〜に) + tribute (与える)。「何らかの原因に結果を割り当てる」ことから。",
-    exampleSentence: "He attributes his success to hard work.",
-    exampleSentenceJapanese: "彼は自分の成功を努力のおかげだと考えている。",
-    isMastered: false,
-    difficultyScore: 0,
-    streak: 0
-  },
-  {
-    id: "m8",
-    term: "paradigm",
-    meaning: "理論的枠組み、パラダイム",
-    level: EikenLevel.GRADE_1,
-    phonetic: "/ˈpærədaɪm/",
-    etymology: "para- (横に) + deigma (示す)。ある時代の思考の典型的な枠組みを示す。",
-    exampleSentence: "This discovery caused a paradigm shift in science.",
-    exampleSentenceJapanese: "この発見は科学におけるパラダイムシフトを引き起こした。",
-    isMastered: false,
-    difficultyScore: 0,
-    streak: 0
   }
 ];
+
+// SecurityError防止のためのlocalStorageラッパー
+const safeStorage = {
+  getItem: (key: string) => {
+    try { return localStorage.getItem(key); } catch { return null; }
+  },
+  setItem: (key: string, value: string) => {
+    try { localStorage.setItem(key, value); } catch { /* ignore */ }
+  },
+  removeItem: (key: string) => {
+    try { localStorage.removeItem(key); } catch { /* ignore */ }
+  }
+};
 
 export const isFirebaseReady = () => !!app;
 
 export const initializeFirebase = async () => {
   try {
-    const response = await fetch('/api/config');
-    if (!response.ok) throw new Error("Config endpoint failed");
+    const response = await fetch('/api/config').catch(() => null);
+    if (!response || !response.ok) {
+      console.warn("⚠️ Firebase configuration endpoint unavailable. Falling back to Mock Mode.");
+      return false;
+    }
     const config = await response.json();
     
     if (config.apiKey && config.projectId) {
@@ -153,10 +130,10 @@ export const initializeFirebase = async () => {
       console.log("✅ Firebase connected via Cloudflare Secrets.");
       return true;
     }
-    console.warn("⚠️ Firebase configuration keys are empty. Falling back to Mock Mode.");
+    console.warn("⚠️ Firebase keys are empty in config. Using Mock Mode.");
     return false;
   } catch (error) {
-    console.error("❌ Firebase Initialization Error:", error);
+    console.error("❌ Firebase Initialization Error (Catastrophic):", error);
     return false;
   }
 };
@@ -177,14 +154,10 @@ export const loginWithGoogle = async () => {
       return result.user;
     } catch (error: any) {
       console.error("Firebase Auth Error:", error);
-      if (error.code === 'auth/unauthorized-domain') {
-        const domain = window.location.hostname;
-        alert(`ドメイン未承認: Firebaseコンソールで ${domain} を許可してください。`);
-      }
       return null;
     }
   } else {
-    localStorage.setItem('eiken_mock_user', JSON.stringify(MOCK_USER));
+    safeStorage.setItem('eiken_mock_user', JSON.stringify(MOCK_USER));
     window.location.reload();
     return MOCK_USER;
   }
@@ -194,7 +167,7 @@ export const logout = async () => {
   if (auth) {
     await signOut(auth);
   }
-  localStorage.removeItem('eiken_mock_user');
+  safeStorage.removeItem('eiken_mock_user');
   window.location.reload();
 };
 
@@ -202,7 +175,7 @@ export const onAuthChange = (callback: (user: User | null) => void) => {
   if (auth) {
     return onAuthStateChanged(auth, callback);
   } else {
-    const saved = localStorage.getItem('eiken_mock_user');
+    const saved = safeStorage.getItem('eiken_mock_user');
     callback(saved ? JSON.parse(saved) : null);
     return () => {};
   }
@@ -242,10 +215,7 @@ export const saveWordToDB = async (word: Word) => {
 };
 
 export const saveUserWordProgress = async (userId: string, word: Word) => {
-  if (!db) {
-    // モックモード時はローカルストレージなどでシミュレート可能（今回は省略）
-    return;
-  }
+  if (!db) return;
   try {
     const ref = doc(db, "users", userId, "progress", word.term.toLowerCase());
     const { term, meaning, level, streak, difficultyScore, isMastered, nextReviewDate, rewardClaimed } = word;

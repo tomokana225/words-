@@ -11,23 +11,45 @@ interface QuizViewProps {
   onCancel: () => void;
 }
 
-// AudioContextを共有
-const sharedAudioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+// AudioContextを遅延初期化するためのシングルトン
+let sharedAudioCtx: AudioContext | null = null;
 
-const playSFX = (type: 'correct' | 'wrong') => {
+const getAudioCtx = () => {
+  if (!sharedAudioCtx) {
+    try {
+      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtxClass) {
+        sharedAudioCtx = new AudioCtxClass();
+      }
+    } catch (e) {
+      console.error("Failed to initialize AudioContext:", e);
+    }
+  }
+  return sharedAudioCtx;
+};
+
+const playSFX = async (type: 'correct' | 'wrong') => {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+
   // 常にレジュームを試みる
-  if (sharedAudioCtx.state === 'suspended') {
-    sharedAudioCtx.resume();
+  try {
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+  } catch (e) {
+    console.warn("Could not resume AudioContext:", e);
+    return;
   }
   
-  const now = sharedAudioCtx.currentTime;
-  const gain = sharedAudioCtx.createGain();
-  gain.connect(sharedAudioCtx.destination);
+  const now = ctx.currentTime;
+  const gain = ctx.createGain();
+  gain.connect(ctx.destination);
 
   if (type === 'correct') {
     // 「ピンポン」
     const playTone = (freq: number, start: number, duration: number) => {
-      const osc = sharedAudioCtx.createOscillator();
+      const osc = ctx.createOscillator();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, start);
       osc.connect(gain);
@@ -41,8 +63,8 @@ const playSFX = (type: 'correct' | 'wrong') => {
     playTone(880.00, now + 0.1, 0.25); // A5
   } else {
     // 「ブー」
-    const osc1 = sharedAudioCtx.createOscillator();
-    const osc2 = sharedAudioCtx.createOscillator();
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
     osc1.type = 'sawtooth';
     osc2.type = 'sawtooth';
     osc1.frequency.setValueAtTime(140, now);
@@ -150,13 +172,20 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onCom
     } as QuizResult;
   }, [isFinished, quizData, userAnswers, initialResult]);
 
-  // マウント時にAudioContextの再開を試みる（iOS対策）
+  // マウント時にAudioContextの再開を試みる
   useEffect(() => {
     const resume = () => {
-      if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+      const ctx = getAudioCtx();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume();
+      }
     };
     window.addEventListener('click', resume, { once: true });
-    return () => window.removeEventListener('click', resume);
+    window.addEventListener('touchstart', resume, { once: true });
+    return () => {
+      window.removeEventListener('click', resume);
+      window.removeEventListener('touchstart', resume);
+    };
   }, []);
 
   if (quizData.length === 0 || (isFinished && results)) {
@@ -227,7 +256,8 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onCom
             </div>
             <button 
               onClick={() => {
-                if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+                const ctx = getAudioCtx();
+                if (ctx && ctx.state === 'suspended') ctx.resume();
                 setSoundEnabled(!soundEnabled);
               }}
               className={`p-2 rounded-lg transition-colors ${soundEnabled ? 'text-indigo-600' : 'text-slate-300'}`}
