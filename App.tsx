@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { EikenLevel, Word, QuizResult, UserStats, ShopItem } from './types';
 import Dashboard from './components/Dashboard';
 import QuizView from './components/QuizView';
@@ -33,14 +33,18 @@ const App: React.FC = () => {
   const [selectedLevel, setSelectedLevel] = useState<EikenLevel | 'ALL' | 'REVIEW' | 'WEAK'>('ALL');
   const [history, setHistory] = useState<string[]>(['dashboard']);
 
-  // ユーザー統計（初期値）
+  // スワイプバック用のRef
+  const touchStartX = useRef<number>(0);
+  const touchStartY = useRef<number>(0);
+
+  // ユーザー統計
   const [stats, setStats] = useState<UserStats>({
     xp: 0,
     coins: 500,
     level: 1,
     totalStudyTime: 0,
     unlockedItems: ['default-avatar'],
-    activeAvatar: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Felix'
+    activeAvatar: 'https://api.dicebear.com/9.x/pixel-art/svg?seed=Felix'
   });
 
   const isAdmin = useMemo(() => {
@@ -48,18 +52,60 @@ const App: React.FC = () => {
     return user?.email && adminEmail && user.email === adminEmail;
   }, [user]);
 
-  // 単語データの取得と統合
+  const navigateTo = useCallback((newView: any) => {
+    setHistory(prev => [...prev, newView]);
+    setView(newView);
+  }, []);
+
+  const goBack = useCallback(() => {
+    if (history.length > 1) {
+      const newHistory = [...history];
+      newHistory.pop();
+      const prevView = newHistory[newHistory.length - 1];
+      setHistory(newHistory);
+      setView(prevView as any);
+    } else {
+      setView('dashboard');
+    }
+  }, [history]);
+
+  // スワイプで戻るアクション
+  useEffect(() => {
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+      const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+
+      // クイズ中やウェルカム画面では無効化
+      if (view === 'quiz' || view === 'welcome') return;
+
+      // 左端からの右スワイプかつ水平移動が垂直移動より大きい場合
+      if (touchStartX.current < 60 && deltaX > 100 && Math.abs(deltaY) < 60) {
+        goBack();
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart);
+    window.addEventListener('touchend', handleTouchEnd);
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [view, goBack]);
+
   const refreshWords = useCallback(async (currentUser: User | null) => {
     const globals = await fetchGlobalWords();
     if (currentUser) {
       const userProgress = await fetchUserWords(currentUser.uid);
-      // グローバル単語にユーザーの進捗（習得済みフラグや復習日）をマージ
       const merged = globals.map(gw => {
         const progress = userProgress.find(uw => uw.term.toLowerCase() === gw.term.toLowerCase());
         return progress ? { ...gw, ...progress } : gw;
       });
       setWords(merged);
-
       const masteredCount = merged.filter(w => w.isMastered).length;
       setStats(prev => ({
         ...prev,
@@ -89,27 +135,9 @@ const App: React.FC = () => {
     init();
   }, [refreshWords]);
 
-  const navigateTo = (newView: any) => {
-    setHistory(prev => [...prev, newView]);
-    setView(newView);
-  };
-
-  const goBack = () => {
-    if (history.length > 1) {
-      const newHistory = [...history];
-      newHistory.pop();
-      const prevView = newHistory[newHistory.length - 1];
-      setHistory(newHistory);
-      setView(prevView as any);
-    } else {
-      setView('dashboard');
-    }
-  };
-
   const grantRewards = useCallback((newWords: Word[]) => {
     let earnedCoins = 0;
     let earnedXp = 0;
-    
     newWords.forEach(w => {
       if (w.isMastered && !w.rewardClaimed) {
         earnedCoins += 50;
@@ -119,7 +147,6 @@ const App: React.FC = () => {
         earnedXp += 10;
       }
     });
-
     if (earnedCoins > 0 || earnedXp > 0) {
       setStats(prev => ({
         ...prev,
@@ -249,7 +276,12 @@ const App: React.FC = () => {
         </nav>
       )}
 
-      <main className={`flex-1 w-full max-w-4xl mx-auto px-4 lg:px-8 ${hideNav ? 'pt-0' : 'pt-6 lg:pt-10'} pb-24 overflow-y-auto h-screen custom-scrollbar`}>
+      <main className={`flex-1 w-full max-w-4xl mx-auto px-4 lg:px-8 ${hideNav ? 'pt-0' : 'pt-6 lg:pt-10'} pb-24 overflow-y-auto h-screen custom-scrollbar relative`}>
+        {/* 左スワイプヒント（オプション） */}
+        {!hideNav && history.length > 1 && (
+          <div className="hidden lg:block fixed left-64 top-1/2 -translate-y-1/2 w-4 h-24 bg-indigo-50/30 rounded-r-full border-r border-indigo-100 pointer-events-none opacity-0 hover:opacity-100 transition-opacity"></div>
+        )}
+
         <div className="animate-view">
           {view === 'welcome' && <WelcomeView onLogin={loginWithGoogle} onGuest={() => navigateTo('dashboard')} />}
           {view === 'dashboard' && <Dashboard user={user} stats={stats} words={words} onSelectLevel={(l) => { setSelectedLevel(l as any); navigateTo('level_preview'); }} onViewWord={(w) => { setCurrentWord(w); navigateTo('detail'); }} onGoShop={() => navigateTo('shop')} />}

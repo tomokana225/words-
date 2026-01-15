@@ -50,25 +50,73 @@ const QuizView: React.FC<QuizViewProps> = ({ words, onComplete, onViewWord, onCa
     }, 450);
   };
 
-  if (quizData.length === 0 || isFinished) {
-    // 終了処理は省略せず、既存のロジックをリファインして維持
-    if (isFinished) {
-      const results = {
-        questions: quizData,
-        userAnswers,
-        score: userAnswers.reduce((acc, ans, idx) => ans === quizData[idx].correctIndex ? acc + 1 : acc, 0),
-        timestamp: Date.now()
-      };
+  const results = useMemo(() => {
+    if (!isFinished) return null;
+    return {
+      questions: quizData,
+      userAnswers,
+      score: userAnswers.reduce((acc, ans, idx) => ans === quizData[idx].correctIndex ? acc + 1 : acc, 0),
+      timestamp: Date.now()
+    };
+  }, [isFinished, quizData, userAnswers]);
+
+  if (quizData.length === 0 || (isFinished && results)) {
+    if (isFinished && results) {
       return (
-        <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 space-y-12 animate-subtle">
-          <div className="text-center space-y-4">
-             <div className="text-6xl">🏁</div>
-             <h2 className="text-3xl font-bold tracking-tight text-slate-900">学習完了！</h2>
-             <p className="text-indigo-600 text-6xl font-bold">{results.score}<span className="text-slate-300 text-2xl font-medium"> / {quizData.length}</span></p>
+        <div className="min-h-screen bg-slate-50 flex flex-col p-4 md:p-8 animate-view">
+          <div className="w-full max-w-2xl mx-auto space-y-8 flex-1">
+            <div className="bg-white rounded-[2.5rem] p-8 text-center shadow-xl border border-slate-100 space-y-4">
+               <div className="text-6xl animate-bounce">🏆</div>
+               <h2 className="text-3xl font-black tracking-tight text-slate-900">学習完了！</h2>
+               <div className="flex items-center justify-center gap-2">
+                 <p className="text-indigo-600 text-6xl font-black">{results.score}</p>
+                 <span className="text-slate-300 text-2xl font-black">/ {quizData.length}</span>
+               </div>
+               <p className="text-slate-400 font-bold text-sm">間違えた単語を振り返りましょう</p>
+            </div>
+
+            <div className="space-y-4">
+               <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] px-2">単語振り返りリスト</h3>
+               <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-50">
+                 {results.questions.map((q, idx) => {
+                   const isCorrect = results.userAnswers[idx] === q.correctIndex;
+                   return (
+                     <div 
+                       key={idx} 
+                       onClick={() => onViewWord(q.word, results)}
+                       className="p-5 flex items-center justify-between hover:bg-slate-50 transition cursor-pointer group"
+                     >
+                       <div className="flex items-center gap-4">
+                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black ${isCorrect ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
+                           {isCorrect ? '✓' : '×'}
+                         </div>
+                         <div>
+                           <p className="font-black text-slate-800 text-base group-hover:text-indigo-600 transition">{q.word.term}</p>
+                           <p className="text-[10px] text-slate-400 font-bold">{q.word.meaning}</p>
+                         </div>
+                       </div>
+                       <div className="text-right">
+                         {!isCorrect && (
+                           <p className="text-[10px] font-black text-rose-400 mb-1">Miss: {q.options[results.userAnswers[idx]]}</p>
+                         )}
+                         <p className="text-[10px] font-black text-emerald-500">Correct: {q.word.meaning}</p>
+                       </div>
+                     </div>
+                   );
+                 })}
+               </div>
+            </div>
+
+            <button 
+              onClick={() => onComplete(results)} 
+              className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-lg shadow-xl hover:bg-black transition-all bounce-on-click"
+            >
+              ダッシュボードに戻る
+            </button>
           </div>
-          <button onClick={() => onComplete(results)} className="w-full max-w-sm py-4 bg-slate-900 text-white rounded-xl font-bold text-lg shadow-lg">
-            ダッシュボードに戻る
-          </button>
+          <div className="h-12 flex items-center justify-center opacity-20 mt-4">
+             <p className="text-[9px] font-black uppercase tracking-[0.4em]">Review Mode Enabled</p>
+          </div>
         </div>
       );
     }
@@ -84,21 +132,22 @@ const QuizView: React.FC<QuizViewProps> = ({ words, onComplete, onViewWord, onCa
         {/* Header */}
         <div className="space-y-4">
           <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            <button onClick={onCancel} className="hover:text-rose-500 transition">Quit</button>
-            <span>Progress: {currentIndex + 1} / {quizData.length}</span>
+            <button onClick={onCancel} className="hover:text-rose-500 transition">Quit Quiz</button>
+            <span>Question {currentIndex + 1} / {quizData.length}</span>
           </div>
-          <div className="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
+          <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
             <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${progress}%` }} />
           </div>
         </div>
 
         {/* Question Area */}
         <div className="flex-1 flex flex-col justify-center items-center text-center space-y-12">
-          <div className="space-y-2">
-            <span className="text-xs font-bold text-indigo-500 uppercase tracking-[0.2em]">English Word</span>
-            <h2 className="text-5xl md:text-6xl font-bold text-slate-900 tracking-tight">
+          <div className="space-y-4">
+            <span className="text-xs font-black text-indigo-500 uppercase tracking-[0.4em]">Analyze Term</span>
+            <h2 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter">
               {currentQ.word.term}
             </h2>
+            <div className="h-1 w-12 bg-indigo-100 rounded-full mx-auto"></div>
           </div>
           
           <div className="grid grid-cols-1 gap-3 w-full">
@@ -120,7 +169,7 @@ const QuizView: React.FC<QuizViewProps> = ({ words, onComplete, onViewWord, onCa
                   key={idx} 
                   onClick={() => handleAnswer(idx)} 
                   disabled={selectedIdx !== null}
-                  className={`w-full py-5 px-6 rounded-2xl text-base md:text-lg font-semibold transition-all duration-200 bounce-on-click ${btnClass}`}
+                  className={`w-full py-5 px-6 rounded-2xl text-base md:text-lg font-black transition-all duration-200 bounce-on-click ${btnClass}`}
                 >
                   {option}
                 </button>
@@ -130,7 +179,7 @@ const QuizView: React.FC<QuizViewProps> = ({ words, onComplete, onViewWord, onCa
         </div>
 
         <div className="h-20 flex items-center justify-center">
-          <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">EikenMaster AI Study Mode</p>
+          <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.4em]">EikenMaster AI Core Study</p>
         </div>
       </div>
     </div>
