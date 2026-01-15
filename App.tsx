@@ -19,6 +19,7 @@ import {
   fetchUserWords, 
   fetchGlobalWords,
   saveUserWordProgress,
+  saveWordToDB,
   getAdminEmail
 } from './services/firebaseService';
 import { User } from 'firebase/auth';
@@ -35,7 +36,7 @@ const App: React.FC = () => {
   // ユーザー統計（初期値）
   const [stats, setStats] = useState<UserStats>({
     xp: 0,
-    coins: 500, // 初期コインを少し多めに
+    coins: 500,
     level: 1,
     totalStudyTime: 0,
     unlockedItems: ['default-avatar'],
@@ -47,48 +48,46 @@ const App: React.FC = () => {
     return user?.email && adminEmail && user.email === adminEmail;
   }, [user]);
 
-  // 学習時間の計測
-  useEffect(() => {
-    if (view === 'welcome' || view === 'quiz') return;
-    const timer = setInterval(() => {
-      setStats(prev => ({ ...prev, totalStudyTime: prev.totalStudyTime + 1 }));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [view]);
+  // 単語データの取得と統合
+  const refreshWords = useCallback(async (currentUser: User | null) => {
+    const globals = await fetchGlobalWords();
+    if (currentUser) {
+      const userProgress = await fetchUserWords(currentUser.uid);
+      // グローバル単語にユーザーの進捗（習得済みフラグや復習日）をマージ
+      const merged = globals.map(gw => {
+        const progress = userProgress.find(uw => uw.term.toLowerCase() === gw.term.toLowerCase());
+        return progress ? { ...gw, ...progress } : gw;
+      });
+      setWords(merged);
+
+      const masteredCount = merged.filter(w => w.isMastered).length;
+      setStats(prev => ({
+        ...prev,
+        xp: masteredCount * 100 + (merged.length * 10),
+        level: Math.floor(Math.sqrt((masteredCount * 100) / 100)) + 1,
+      }));
+    } else {
+      setWords(globals);
+    }
+  }, []);
 
   useEffect(() => {
     const init = async () => {
       await initializeFirebase();
       const unsubscribe = onAuthChange(async (fbUser) => {
         setUser(fbUser);
-        if (fbUser) {
-          const userWords = await fetchUserWords(fbUser.uid);
-          setWords(userWords);
-          const masteredCount = userWords.filter(w => w.isMastered).length;
-          setStats(prev => ({
-            ...prev,
-            xp: masteredCount * 100 + (userWords.length * 10),
-            level: Math.floor(Math.sqrt((masteredCount * 100) / 100)) + 1,
-            // 実際はDBから読み込むべきだがデモ用に計算
-            coins: prev.coins + (masteredCount * 50)
-          }));
-          if (view === 'welcome') navigateTo('dashboard');
+        await refreshWords(fbUser);
+        if (fbUser || localStorage.getItem('eiken_mock_user')) {
+          if (view === 'welcome') setView('dashboard');
         } else {
-          const savedMock = localStorage.getItem('eiken_mock_user');
-          if (savedMock) {
-             const globals = await fetchGlobalWords();
-             setWords(globals);
-             if (view === 'welcome') navigateTo('dashboard');
-          } else {
-             setView('welcome');
-          }
+          setView('welcome');
         }
         setIsAppReady(true);
       });
       return () => unsubscribe();
     };
     init();
-  }, []);
+  }, [refreshWords]);
 
   const navigateTo = (newView: any) => {
     setHistory(prev => [...prev, newView]);
@@ -122,16 +121,12 @@ const App: React.FC = () => {
     });
 
     if (earnedCoins > 0 || earnedXp > 0) {
-      setStats(prev => {
-        const nextXp = prev.xp + earnedXp;
-        const nextLevel = Math.floor(Math.sqrt(nextXp / 100)) + 1;
-        return {
-          ...prev,
-          xp: nextXp,
-          coins: prev.coins + earnedCoins,
-          level: nextLevel
-        };
-      });
+      setStats(prev => ({
+        ...prev,
+        xp: prev.xp + earnedXp,
+        coins: prev.coins + earnedCoins,
+        level: Math.floor(Math.sqrt((prev.xp + earnedXp) / 100)) + 1
+      }));
     }
   }, []);
 
@@ -155,7 +150,7 @@ const App: React.FC = () => {
     setWords(prev => {
       const nextWords = [...prev];
       results.questions.forEach((q, i) => {
-        const idx = nextWords.findIndex(w => w.term === q.word.term);
+        const idx = nextWords.findIndex(w => w.term.toLowerCase() === q.word.term.toLowerCase());
         if (idx > -1) {
           const w = { ...nextWords[idx] };
           const isCorrect = results.userAnswers[i] === q.correctIndex;
@@ -233,6 +228,9 @@ const App: React.FC = () => {
               </button>
             ))}
           </nav>
+          {isAdmin && (
+             <button onClick={() => navigateTo('admin')} className="mt-auto px-4 py-2 text-[10px] font-bold text-slate-400 border border-dashed rounded-lg hover:border-indigo-400 hover:text-indigo-400 transition">管理モード</button>
+          )}
         </aside>
       )}
 
@@ -262,7 +260,15 @@ const App: React.FC = () => {
           {view === 'level_preview' && <LevelWordListView level={selectedLevel as any} words={quizPool} onStartQuiz={() => navigateTo('quiz')} onBack={goBack} onViewWord={(w) => { setCurrentWord(w); navigateTo('detail'); }} />}
           {view === 'quiz' && <QuizView words={quizPool} onComplete={(r) => { saveQuizResults(r); navigateTo('dashboard'); }} onViewWord={(w, r) => { saveQuizResults(r); setCurrentWord(w); navigateTo('detail'); }} onCancel={goBack} />}
           {view === 'detail' && currentWord && <WordDetailView word={currentWord} onUpdate={handleUpdateWord} onBack={goBack} onSelectSynonym={(t) => { setCurrentWord({ id: `syn-${Date.now()}`, term: t, meaning: '解析中...', level: EikenLevel.GRADE_3 }); }} />}
-          {view === 'admin' && isAdmin && <AdminView onImport={async (ws) => { /* logic */ }} onCancel={goBack} />}
+          {view === 'admin' && isAdmin && (
+            <AdminView 
+              onImport={async (ws) => { 
+                for (const w of ws) await saveWordToDB(w);
+                await refreshWords(user);
+              }} 
+              onCancel={goBack} 
+            />
+          )}
         </div>
       </main>
     </div>

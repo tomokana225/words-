@@ -105,8 +105,8 @@ export const fetchGlobalWords = async (): Promise<Word[]> => {
   if (!db) return [];
   try {
     const colRef = collection(db, "global_vocabulary");
-    // パフォーマンスのため一旦100件制限（必要に応じて調整）
-    const q = query(colRef, limit(200));
+    // 全単語を取得（Firestoreの制限に合わせて調整）
+    const q = query(colRef, limit(1000));
     const snap = await getDocs(q);
     return snap.docs.map(d => d.data() as Word);
   } catch (error) {
@@ -137,7 +137,9 @@ export const saveUserWordProgress = async (userId: string, word: Word) => {
   if (!db) return;
   try {
     const ref = doc(db, "users", userId, "progress", word.term.toLowerCase());
-    await setDoc(ref, { ...word, lastUpdated: Date.now() }, { merge: true });
+    // 習得済みフラグや復習日などの進捗情報のみを保存
+    const { term, meaning, level, streak, difficultyScore, isMastered, nextReviewDate, rewardClaimed } = word;
+    await setDoc(ref, { term, meaning, level, streak, difficultyScore, isMastered, nextReviewDate, rewardClaimed, lastUpdated: Date.now() }, { merge: true });
   } catch (error) {
     console.error("User Progress Save Error:", error);
   }

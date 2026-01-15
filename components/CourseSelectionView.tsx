@@ -24,8 +24,8 @@ const CourseSelectionView: React.FC<CourseSelectionViewProps> = ({ onSelect, onL
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
         </button>
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">単語帳</h2>
-          <p className="text-xs font-medium text-slate-500">学習する級または自分のリストを選択してください。</p>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">公式単語帳</h2>
+          <p className="text-xs font-medium text-slate-500">管理者が厳選した公式リストで学習しましょう。</p>
         </div>
       </header>
 
@@ -37,11 +37,17 @@ const CourseSelectionView: React.FC<CourseSelectionViewProps> = ({ onSelect, onL
             className="w-full bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between group hover:border-indigo-300 hover:bg-slate-50 transition-all bounce-on-click"
           >
             <div className="flex items-center gap-4">
-              <div className={`w-10 h-10 rounded-lg ${c.color} flex items-center justify-center text-white shadow-sm`}>
+              <div className={`w-10 h-10 rounded-lg ${c.color} flex items-center justify-center text-white shadow-sm relative`}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full flex items-center justify-center border border-slate-200">
+                  <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>
+                </div>
               </div>
               <div className="text-left">
-                <p className="text-base font-bold text-slate-800">{c.title}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-base font-bold text-slate-800">{c.title}</p>
+                  <span className="text-[8px] font-black bg-slate-100 text-slate-400 px-1 rounded">MASTER</span>
+                </div>
                 <p className="text-[10px] font-medium text-slate-400">{c.count}</p>
               </div>
             </div>
@@ -64,7 +70,7 @@ const CourseSelectionView: React.FC<CourseSelectionViewProps> = ({ onSelect, onL
           onClick={() => onSelect('ALL' as any)}
           className="w-full py-4 border border-slate-200 rounded-xl text-slate-600 font-bold text-sm hover:bg-white hover:border-indigo-300 transition-all"
         >
-          登録済み単語をすべて表示
+          全公式単語を一括表示
         </button>
       </div>
 

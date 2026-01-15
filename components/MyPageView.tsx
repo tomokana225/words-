@@ -19,74 +19,42 @@ const MyPageView: React.FC<MyPageViewProps> = ({ user, stats, words, onLogout, o
   const [activeTab, setActiveTab] = useState<'stats' | 'gallery'>('stats');
   const masteredCount = words.filter(w => w.isMastered).length;
   
-  // ショップ・ガチャの全ラインナップを統合 - 新アバター全38種類を反映
+  // ショップ側の新スタイルと同期
   const avatars = [
-    { id: 'default-avatar', name: 'デフォルト', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Felix' },
-    // 冒険者
-    { id: 'av-p-1', name: 'ピクセル勇者', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Hero' },
-    { id: 'av-p-2', name: 'ピクセル魔導士', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Mage' },
-    { id: 'av-p-3', name: 'ドット戦士', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Warrior' },
-    { id: 'av-p-4', name: 'ピクセル姫', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Princess' },
-    { id: 'av-p-5', name: 'ドット忍者', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Ninja' },
-    { id: 'av-p-6', name: 'ピクセル農夫', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Farmer' },
-    { id: 'av-p-7', name: 'ドット侍', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Samurai' },
-    { id: 'av-p-8', name: 'ピクセル錬金術師', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Alchemist' },
-    { id: 'av-p-9', name: 'ドット学者', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Professor' },
-    { id: 'av-p-10', name: 'ピクセル王', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=King' },
-    // アニマル
-    { id: 'av-a-1', name: 'ドットわんこ', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Dog' },
-    { id: 'av-a-2', name: 'ドットにゃんこ', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Cat' },
-    { id: 'av-a-3', name: 'ピクセル小鳥', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Bird' },
-    { id: 'av-a-4', name: 'ドットうさぎ', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Rabbit' },
-    { id: 'av-a-5', name: 'ピクセル狐', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Fox' },
-    { id: 'av-a-6', name: 'ドット狼', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Wolf' },
-    { id: 'av-a-7', name: 'ピクセル熊', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Bear' },
-    { id: 'av-a-8', name: 'ドットカエル', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Frog' },
-    { id: 'av-a-9', name: 'ピクセルライオン', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Lion' },
-    { id: 'av-a-10', name: 'ドットパンダ', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Panda' },
-    { id: 'av-a-11', name: 'ピクセルペンギン', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Penguin' },
-    { id: 'av-a-12', name: 'ドットコアラ', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Koala' },
-    { id: 'av-a-13', name: 'ピクセル象', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Elephant' },
-    { id: 'av-a-14', name: 'ドット梟', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Owl' },
-    // 幻獣・スペシャル
-    { id: 'av-s-1', name: 'ドットロボ', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Robot' },
-    { id: 'av-s-2', name: 'ピクセル宇宙人', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Alien' },
-    { id: 'av-s-3', name: 'ドットおばけ', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Ghost' },
-    { id: 'av-s-4', name: 'ピクセルスライム', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Slime' },
-    { id: 'av-s-5', name: 'ドットユニコーン', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Unicorn' },
-    { id: 'av-s-6', name: 'ピクセルフェニックス', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Phoenix' },
-    { id: 'av-s-7', name: 'ドットドラゴン', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Dragon' },
-    { id: 'av-s-8', name: 'ピクセル天使', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Angel' },
-    { id: 'av-s-9', name: 'ドット死神', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Reaper' },
-    { id: 'av-s-11', name: 'ピクセルヴァンパイア', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Vampire' },
-    { id: 'av-s-12', name: 'ドット人魚', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Mermaid' },
-    { id: 'av-s-13', name: 'ピクセル妖精', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Fairy' },
-    { id: 'av-s-14', name: 'ドットゴーレム', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Golem' },
-    { id: 'av-s-15', name: 'ピクセルクラーケン', url: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Kraken' },
+    { id: 'default-avatar', name: 'デフォルト', url: 'https://api.dicebear.com/9.x/pixel-art/svg?seed=Felix' },
+    // 冒険者 (人間)
+    { id: 'av-p-1', name: '聖騎士パラディン', url: 'https://api.dicebear.com/9.x/pixel-art/svg?seed=Paladin&flip=true' },
+    { id: 'av-p-2', name: '混沌の魔導士', url: 'https://api.dicebear.com/9.x/pixel-art/svg?seed=Warlock' },
+    { id: 'av-p-3', name: '影の暗殺者', url: 'https://api.dicebear.com/9.x/pixel-art/svg?seed=Assassin' },
+    { id: 'av-p-4', name: '黄金の姫君', url: 'https://api.dicebear.com/9.x/pixel-art/svg?seed=Princess' },
+    { id: 'av-p-5', name: 'サイバー忍者', url: 'https://api.dicebear.com/9.x/pixel-art/svg?seed=CyberNinja' },
+    { id: 'av-p-10', name: '光輝の国王', url: 'https://api.dicebear.com/9.x/pixel-art/svg?seed=GrandKing' },
+    // 精細アニマル (非人間)
+    { id: 'av-a-1', name: '柴犬丸', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Shiba' },
+    { id: 'av-a-2', name: '三毛猫ミケ', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Cat' },
+    { id: 'av-a-4', name: '雪うさぎ', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Rabbit' },
+    { id: 'av-a-5', name: '銀狐', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Fox' },
+    { id: 'av-a-6', name: '蒼き狼', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Wolf' },
+    { id: 'av-a-9', name: '百獣の王', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Lion' },
+    { id: 'av-a-10', name: 'レッサーパンダ', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=RedPanda' },
+    { id: 'av-a-11', name: '皇帝ペンギン', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Penguin' },
+    { id: 'av-a-12', name: 'ウーパールーパー', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Axolotl' },
+    { id: 'av-a-15', name: '深海のシャチ', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Orca' },
+    // 幻獣・スペシャル (非人間)
+    { id: 'av-s-1', name: '次世代アンドロイド', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=AndroidX' },
+    { id: 'av-s-4', name: 'メタルスライム', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Slime' },
+    { id: 'av-s-5', name: '聖獣ユニコーン', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Unicorn' },
+    { id: 'av-s-7', name: '古代龍ドラグーン', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Dragon' },
+    { id: 'av-s-15', name: '深淵の魔神クラーケン', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Kraken' },
   ];
 
   const gachaItems = [
-    // N
     { id: 'acc-ribbon', name: '赤いリボン', preview: '🎀', rarity: 'N' },
     { id: 'acc-balloon', name: 'お祝い風船', preview: '🎈', rarity: 'N' },
     { id: 'acc-medal-3', name: '3級メダル', preview: '🥉', rarity: 'N' },
-    { id: 'bg-grid', name: 'グリッド背景', preview: '🏁', rarity: 'N' },
-    { id: 'acc-glasses', name: 'インテリ眼鏡', preview: '👓', rarity: 'N' },
-    // R
     { id: 'acc-crown', name: '黄金の王冠', preview: '👑', rarity: 'R' },
-    { id: 'acc-wing', name: '天使の羽', preview: '🪶', rarity: 'R' },
-    { id: 'acc-magic', name: '真実の杖', preview: '🪄', rarity: 'R' },
-    { id: 'bg-aurora', name: 'オーロラ', preview: '🌌', rarity: 'R' },
-    { id: 'acc-shield', name: '英知の盾', preview: '🛡️', rarity: 'R' },
-    // SR
     { id: 'acc-pet-dog', name: '相棒の柴犬', preview: '🐕', rarity: 'SR' },
-    { id: 'acc-aura', name: '覇者のオーラ', preview: '✨', rarity: 'SR' },
-    { id: 'bg-space', name: '銀河の果て', preview: '🛰️', rarity: 'SR' },
-    { id: 'acc-bolt', name: '稲妻の加護', preview: '⚡', rarity: 'SR' },
-    // SEC
     { id: 'sec-dragon', name: '伝説のドット龍', preview: '🐉', rarity: 'SEC' },
-    { id: 'sec-brain', name: '黄金のAI頭脳', preview: '🧠', rarity: 'SEC' },
-    { id: 'sec-sword', name: '聖剣マスター', preview: '🗡️', rarity: 'SEC' },
   ];
 
   const getRarityClass = (rarity: string) => {
@@ -195,11 +163,6 @@ const MyPageView: React.FC<MyPageViewProps> = ({ user, stats, words, onLogout, o
                     <span className="text-[7px] mt-1 font-black truncate w-full text-center px-1 opacity-60 uppercase">{i.rarity === 'SEC' ? 'SEC' : i.name}</span>
                   </div>
                 ))}
-                {gachaItems.filter(i => stats.unlockedItems.includes(i.id)).length === 0 && (
-                   <div className="col-span-full py-10 text-center bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-100">
-                      <p className="text-[9px] text-slate-400">ガチャを回してアイテムをGETしよう！</p>
-                   </div>
-                )}
              </div>
           </section>
         </div>
