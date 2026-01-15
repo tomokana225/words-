@@ -62,12 +62,11 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, allWords, onUpdat
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 space-y-6">
         <div className="max-w-2xl mx-auto space-y-6 pb-20">
           
-          {/* Word Hero Section - 重なり防止のために構造を強化 */}
+          {/* Word Hero Section */}
           <div className="bg-white rounded-[2.5rem] p-6 md:p-10 shadow-sm border border-slate-100 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 blur-3xl opacity-50"></div>
-            <div className="relative z-10 flex flex-col gap-6">
+            <div className="relative z-10 space-y-6">
               
-              {/* 上部タグエリア */}
               <div className="flex flex-wrap gap-2 items-center">
                 <span className="inline-block px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-indigo-100">
                   {word.level}
@@ -80,27 +79,27 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, allWords, onUpdat
                 </div>
               </div>
 
-              {/* メイン単語エリア - 長い単語でも崩れないよう flex-col/row を最適化 */}
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div className="space-y-3 flex-1 min-w-0">
-                  <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-[1.1] break-all">
+              {/* レイアウト改善: 単語、発音記号、ボタンを重ならないように配置 */}
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                <div className="space-y-4 flex-1 min-w-0">
+                  <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-tight break-all">
                     {word.term}
                   </h1>
-                  <div className="flex items-center gap-3">
-                    <p className="text-sm font-bold text-slate-400 font-mono tracking-wide bg-slate-50 px-2 py-0.5 rounded italic">
+                  <div className="flex items-center gap-4 bg-slate-50 p-2 pl-3 pr-2 rounded-2xl border border-slate-100 inline-flex">
+                    <p className="text-sm font-bold text-slate-500 font-mono italic">
                       {details.phonetic || '...'}
                     </p>
                     <button 
                       onClick={() => handlePlay(word.term)}
-                      className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center hover:scale-110 active:scale-95 transition shadow-lg flex-shrink-0"
+                      className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center hover:scale-110 active:scale-95 transition shadow-lg flex-shrink-0"
                       aria-label="読み上げ"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
                     </button>
                   </div>
                 </div>
-                <div className="md:text-right flex-shrink-0 bg-indigo-50/30 p-4 rounded-3xl border border-indigo-100/50 md:bg-transparent md:p-0 md:border-0">
-                  <h2 className="text-2xl md:text-3xl font-black text-indigo-700 md:text-slate-800 tracking-tight">
+                <div className="bg-indigo-50 p-6 rounded-[2rem] border border-indigo-100/50 flex-shrink-0 md:max-w-[200px]">
+                  <h2 className="text-2xl font-black text-indigo-700 tracking-tight leading-tight">
                     {details.meaning || word.meaning}
                   </h2>
                 </div>
@@ -115,7 +114,6 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, allWords, onUpdat
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* 成り立ち・コアイメージ */}
               <section className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm space-y-4 md:col-span-2">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
@@ -128,7 +126,6 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, allWords, onUpdat
                 </p>
               </section>
 
-              {/* 例文 */}
               <section className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm space-y-4 md:col-span-2">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-6 h-6 bg-emerald-500 rounded-lg flex items-center justify-center text-white">
@@ -136,21 +133,22 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, allWords, onUpdat
                   </div>
                   <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">例文</h3>
                 </div>
-                <div className="p-6 bg-emerald-50/50 rounded-2xl border border-emerald-100 space-y-3 relative group overflow-hidden">
+                <div className="p-6 bg-emerald-50/50 rounded-2xl border border-emerald-100 space-y-4 relative group overflow-hidden">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-100/30 rounded-full -mr-12 -mt-12 blur-2xl"></div>
-                  <p className="text-lg font-black text-slate-800 leading-snug relative z-10">{details.exampleSentence}</p>
-                  <p className="text-xs font-bold text-slate-500 relative z-10">{details.exampleSentenceJapanese}</p>
+                  <div className="pr-12 space-y-3">
+                    <p className="text-lg font-black text-slate-800 leading-snug relative z-10">{details.exampleSentence}</p>
+                    <p className="text-xs font-bold text-slate-500 relative z-10">{details.exampleSentenceJapanese}</p>
+                  </div>
                   <button 
                     onClick={() => handlePlay(details.exampleSentence)} 
-                    className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white text-emerald-600 flex items-center justify-center shadow-md hover:scale-110 active:scale-95 transition z-20"
+                    className="absolute top-6 right-6 w-11 h-11 rounded-full bg-white text-emerald-600 flex items-center justify-center shadow-md hover:scale-110 active:scale-95 transition z-20"
                     aria-label="例文読み上げ"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
                   </button>
                 </div>
               </section>
 
-              {/* 同じ語源の仲間 */}
               <section className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm space-y-4">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
@@ -163,7 +161,7 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, allWords, onUpdat
                       <div key={i} onClick={() => known && onSelectSynonym(rw.term)} className={`flex items-center justify-between p-3 rounded-xl border border-slate-100 transition group ${known ? 'hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer' : 'opacity-60 grayscale cursor-default'}`}>
                         <div className="flex flex-col">
                           <span className={`text-sm font-black ${known ? 'text-slate-700 group-hover:text-indigo-600' : 'text-slate-400'}`}>
-                            {rw.term} {!known && <span className="text-[8px] opacity-40">(未登録)</span>}
+                            {rw.term} {!known && <span className="text-[8px] opacity-40 ml-1">(未登録)</span>}
                           </span>
                           <span className="text-[10px] font-bold text-slate-400">{rw.meaning}</span>
                         </div>
@@ -178,7 +176,6 @@ const WordDetailView: React.FC<WordDetailViewProps> = ({ word, allWords, onUpdat
                 </div>
               </section>
 
-              {/* 類義語 */}
               <section className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm space-y-4">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>

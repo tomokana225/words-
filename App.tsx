@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { EikenLevel, Word, QuizResult, UserStats, MasteryStatus } from './types';
+import { EikenLevel, Word, QuizResult, UserStats, MasteryStatus, QuizType } from './types';
 import Dashboard from './components/Dashboard';
 import QuizView from './components/QuizView';
 import WordDetailView from './components/WordDetailView';
@@ -31,6 +31,12 @@ const App: React.FC = () => {
   const [words, setWords] = useState<Word[]>([]);
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<EikenLevel | 'ALL' | 'REVIEW' | 'WEAK' | MasteryStatus>('ALL');
+  // quizConfig に soundEnabled を追加
+  const [quizConfig, setQuizConfig] = useState<{ type: QuizType | 'random', count: number, soundEnabled: boolean }>({ 
+    type: 'random', 
+    count: 10,
+    soundEnabled: true 
+  });
   const [history, setHistory] = useState<string[]>(['dashboard']);
 
   const touchStartX = useRef<number>(0);
@@ -53,7 +59,6 @@ const App: React.FC = () => {
   const navigateTo = useCallback((newView: any) => {
     setHistory(prev => [...prev, newView]);
     setView(newView);
-    // クイズ以外は履歴に残す
     if (newView !== 'quiz') {
       window.history.pushState({ view: newView }, '', '');
     }
@@ -62,7 +67,6 @@ const App: React.FC = () => {
   const resetToDashboard = useCallback(() => {
     setHistory(['dashboard']);
     setView('dashboard');
-    // クイズ終了時に履歴をリセットして「戻る」ボタンでの再開を防ぐ
     window.history.replaceState({ view: 'dashboard' }, '', '/');
   }, []);
 
@@ -78,11 +82,9 @@ const App: React.FC = () => {
     }
   }, [history, resetToDashboard]);
 
-  // ブラウザの戻るボタンをハンドリング
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
       if (view === 'quiz') {
-        // クイズ中の「戻る」は警告なしでリスト画面へ（または goBack）
         goBack();
       } else if (e.state?.view) {
         setView(e.state.view);
@@ -210,7 +212,7 @@ const App: React.FC = () => {
             w.lastWasCorrect = true;
             w.difficultyScore = Math.max(0, (w.difficultyScore || 0) - 10);
             
-            const intervals = [0.5, 1, 3, 7, 14, 30]; // 回数に応じた復習間隔（日数）
+            const intervals = [0.5, 1, 3, 7, 14, 30];
             const days = intervals[Math.min(w.masteryCount, intervals.length - 1)];
             w.nextReviewDate = Date.now() + days * 24 * 60 * 60 * 1000;
             
@@ -219,7 +221,7 @@ const App: React.FC = () => {
             w.streak = 0;
             w.lastWasCorrect = false;
             w.difficultyScore = (w.difficultyScore || 0) + 20;
-            w.nextReviewDate = Date.now() + 15 * 60 * 1000; // 15分後に再試
+            w.nextReviewDate = Date.now() + 15 * 60 * 1000;
             w.isMastered = false;
             w.masteryCount = Math.max(0, (w.masteryCount || 0) - 1);
           }
@@ -324,8 +326,8 @@ const App: React.FC = () => {
           {view === 'diagnosis' && <DiagnosisView onCancel={goBack} />}
           {view === 'mypage' && <MyPageView user={user} stats={stats} words={words} onLogout={logout} onLogin={loginWithGoogle} onAdmin={() => navigateTo('admin')} isAdmin={isAdmin} onBack={goBack} onSelectItem={(id) => setStats(prev => ({...prev, activeAvatar: id}))} />}
           {view === 'shop' && <ShopView stats={stats} onPurchase={(item) => { setStats(prev => ({ ...prev, coins: prev.coins - item.price, unlockedItems: [...prev.unlockedItems, item.id] })); }} onGacha={(items) => { setStats(prev => ({ ...prev, coins: prev.coins - 300, unlockedItems: [...prev.unlockedItems, ...items.map(i => i.id)] })); }} onBack={goBack} />}
-          {view === 'level_preview' && <LevelWordListView level={selectedLevel as any} words={quizPool} onStartQuiz={() => navigateTo('quiz')} onBack={goBack} onViewWord={(w) => { setCurrentWord(w); navigateTo('detail'); }} />}
-          {view === 'quiz' && <QuizView words={quizPool} onComplete={(r) => { saveQuizResults(r); resetToDashboard(); }} onViewWord={(w, r) => { saveQuizResults(r); setCurrentWord(w); navigateTo('detail'); }} onCancel={goBack} />}
+          {view === 'level_preview' && <LevelWordListView level={selectedLevel as any} words={quizPool} onStartQuiz={(config) => { setQuizConfig(config); navigateTo('quiz'); }} onBack={goBack} onViewWord={(w) => { setCurrentWord(w); navigateTo('detail'); }} />}
+          {view === 'quiz' && <QuizView words={quizPool} config={quizConfig} onComplete={(r) => { saveQuizResults(r); resetToDashboard(); }} onViewWord={(w, r) => { saveQuizResults(r); setCurrentWord(w); navigateTo('detail'); }} onCancel={goBack} />}
           {view === 'detail' && currentWord && <WordDetailView word={currentWord} allWords={words} onUpdate={handleUpdateWord} onBack={goBack} onSelectSynonym={(t) => { 
             const found = words.find(w => w.term.toLowerCase() === t.toLowerCase());
             if (found) setCurrentWord(found);
