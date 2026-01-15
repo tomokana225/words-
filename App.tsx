@@ -58,12 +58,9 @@ const App: React.FC = () => {
     return user?.email && adminEmail && user.email === adminEmail;
   }, [user]);
 
-  // クラウド同期用ヘルパー
   const syncStats = useCallback(async (newStats: UserStats, targetUser: User | null = user) => {
     setStats(newStats);
-    if (targetUser) {
-      await saveUserStats(targetUser.uid, newStats);
-    }
+    await saveUserStats(targetUser?.uid || "guest-id", newStats);
   }, [user]);
 
   const navigateTo = useCallback((newView: any) => {
@@ -132,28 +129,25 @@ const App: React.FC = () => {
 
   const refreshData = useCallback(async (currentUser: User | null) => {
     const globals = await fetchGlobalWords();
-    if (currentUser) {
-      const [userProgress, userStats] = await Promise.all([
-        fetchUserWords(currentUser.uid),
-        fetchUserStats(currentUser.uid)
-      ]);
+    
+    // statsの読み込み
+    const loadedStats = await fetchUserStats(currentUser?.uid || "guest-id");
+    if (loadedStats) {
+      setStats(loadedStats);
+    } else if (currentUser) {
+      // ログイン後の初回アクセスなら、現在のstatsを保存
+      await saveUserStats(currentUser.uid, stats);
+    }
 
+    if (currentUser) {
+      const userProgress = await fetchUserWords(currentUser.uid);
       const merged = globals.map(gw => {
         const progress = userProgress.find(uw => uw.term.toLowerCase() === gw.term.toLowerCase());
         return progress ? { ...gw, ...progress } : gw;
       });
       setWords(merged);
-
-      if (userStats) {
-        setStats(userStats);
-      } else {
-        // 新規ユーザーの場合、現在の初期値を保存
-        await saveUserStats(currentUser.uid, stats);
-      }
     } else {
       setWords(globals);
-      const localStats = await fetchUserStats(""); // ゲスト用
-      if (localStats) setStats(localStats);
     }
   }, [stats]);
 

@@ -28,7 +28,7 @@ let auth: Auth | null = null;
 let provider: GoogleAuthProvider | null = null;
 let adminEmail: string = "";
 
-// --- SecurityError対策: localStorageの完全な代替 ---
+// --- SecurityError & Permission フォールバック ---
 const memoryStorage: Record<string, string> = {};
 const safeStorage = {
   getItem: (key: string) => {
@@ -59,11 +59,7 @@ export const isFirebaseReady = () => !!app;
 export const initializeFirebase = async () => {
   try {
     const response = await fetch('/api/config').catch(() => null);
-    
-    if (!response || !response.ok) {
-      console.warn("⚠️ Firebase config endpoint failed. Running in Local Mock Mode.");
-      return false;
-    }
+    if (!response || !response.ok) return false;
     
     const config = await response.json();
     if (config.apiKey && config.projectId) {
@@ -76,7 +72,7 @@ export const initializeFirebase = async () => {
     }
     return false;
   } catch (error) {
-    console.error("❌ Firebase Initialization Suppressed:", error);
+    console.error("Firebase Init Suppressed:", error);
     return false;
   }
 };
@@ -128,28 +124,38 @@ export const onAuthChange = (callback: (user: User | null) => void) => {
 // --- User Stats persistence ---
 
 export const fetchUserStats = async (userId: string): Promise<UserStats | null> => {
-  if (!db) {
+  // ゲストの場合やDB未初期化の場合は即フォールバック
+  if (!db || !userId || userId === "guest-id") {
     const local = safeStorage.getItem('eiken_local_stats');
     return local ? JSON.parse(local) : null;
   }
   try {
     const snap = await getDoc(doc(db, "users", userId));
-    return snap.exists() ? (snap.data() as UserStats) : null;
-  } catch (e) {
-    console.error("Fetch Stats Error:", e);
+    if (snap.exists()) {
+      const data = snap.data() as UserStats;
+      // クラウド版をローカルにもバックアップ
+      safeStorage.setItem('eiken_local_stats', JSON.stringify(data));
+      return data;
+    }
     return null;
+  } catch (e) {
+    console.warn("Cloud stats fetch failed (permission or network). Using local backup.");
+    const local = safeStorage.getItem('eiken_local_stats');
+    return local ? JSON.parse(local) : null;
   }
 };
 
 export const saveUserStats = async (userId: string, stats: UserStats) => {
-  if (!db) {
-    safeStorage.setItem('eiken_local_stats', JSON.stringify(stats));
-    return;
-  }
+  // 常にローカルには即時保存
+  safeStorage.setItem('eiken_local_stats', JSON.stringify(stats));
+  
+  if (!db || !userId || userId === "guest-id") return;
+  
   try {
     await setDoc(doc(db, "users", userId), stats, { merge: true });
   } catch (e) {
-    console.error("Save Stats Error:", e);
+    // 権限エラーなどはログに留め、アプリの動作（ローカル保存）は継続させる
+    console.warn("Cloud stats save failed. Progress kept locally.", e);
   }
 };
 
@@ -166,7 +172,7 @@ export const fetchGlobalWords = async (): Promise<Word[]> => {
 };
 
 export const fetchUserWords = async (userId: string): Promise<Word[]> => {
-  if (!db) return [];
+  if (!db || !userId || userId === "guest-id") return [];
   try {
     const snap = await getDocs(collection(db, "users", userId, "progress"));
     return snap.docs.map(d => d.data() as Word);
@@ -174,12 +180,12 @@ export const fetchUserWords = async (userId: string): Promise<Word[]> => {
 };
 
 export const saveUserWordProgress = async (userId: string, word: Word) => {
-  if (!db) return;
+  if (!db || !userId || userId === "guest-id") return;
   try {
     const ref = doc(db, "users", userId, "progress", word.term.toLowerCase());
-    const { id, ...data } = word; // idはドキュメント名に使う
+    const { id, ...data } = word;
     await setDoc(ref, { ...data, lastUpdated: Date.now() }, { merge: true });
-  } catch (e) { console.error(e); }
+  } catch (e) { console.warn("Cloud word progress save failed.", e); }
 };
 
 export const fetchWordFromDB = async (term: string) => {
