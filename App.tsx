@@ -53,12 +53,17 @@ const App: React.FC = () => {
   const navigateTo = useCallback((newView: any) => {
     setHistory(prev => [...prev, newView]);
     setView(newView);
+    // クイズ以外は履歴に残す
+    if (newView !== 'quiz') {
+      window.history.pushState({ view: newView }, '', '');
+    }
   }, []);
 
   const resetToDashboard = useCallback(() => {
     setHistory(['dashboard']);
     setView('dashboard');
-    window.history.replaceState(null, '', '/');
+    // クイズ終了時に履歴をリセットして「戻る」ボタンでの再開を防ぐ
+    window.history.replaceState({ view: 'dashboard' }, '', '/');
   }, []);
 
   const goBack = useCallback(() => {
@@ -72,6 +77,22 @@ const App: React.FC = () => {
       resetToDashboard();
     }
   }, [history, resetToDashboard]);
+
+  // ブラウザの戻るボタンをハンドリング
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (view === 'quiz') {
+        // クイズ中の「戻る」は警告なしでリスト画面へ（または goBack）
+        goBack();
+      } else if (e.state?.view) {
+        setView(e.state.view);
+      } else {
+        resetToDashboard();
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [view, goBack, resetToDashboard]);
 
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
@@ -200,7 +221,6 @@ const App: React.FC = () => {
             w.difficultyScore = (w.difficultyScore || 0) + 20;
             w.nextReviewDate = Date.now() + 15 * 60 * 1000; // 15分後に再試
             w.isMastered = false;
-            // 正解回数を1減らす（ペナルティ）
             w.masteryCount = Math.max(0, (w.masteryCount || 0) - 1);
           }
           nextWords[idx] = w;
@@ -224,13 +244,11 @@ const App: React.FC = () => {
 
   const quizPool = useMemo(() => {
     const now = Date.now();
-    // 特殊フィルタ
     if (selectedLevel === 'REVIEW') return words.filter(w => (w.masteryCount || 0) < 4 && w.nextReviewDate && w.nextReviewDate <= now);
     if (selectedLevel === 'WEAK') return words.filter(w => getMasteryStatus(w) === MasteryStatus.WEAK);
     if (selectedLevel === MasteryStatus.UNLEARNED) return words.filter(w => getMasteryStatus(w) === MasteryStatus.UNLEARNED);
     if (selectedLevel === MasteryStatus.UNSTABLE) return words.filter(w => getMasteryStatus(w) === MasteryStatus.UNSTABLE);
     if (selectedLevel === MasteryStatus.MASTERED) return words.filter(w => getMasteryStatus(w) === MasteryStatus.MASTERED);
-    
     if (selectedLevel === 'ALL') return words;
     return words.filter(w => w.level === selectedLevel);
   }, [words, selectedLevel]);
@@ -239,12 +257,12 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-8 text-center font-sans">
         <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="font-medium text-slate-500 text-sm">読み込み中...</p>
+        <p className="font-medium text-slate-500 text-sm">AIエンジン起動中...</p>
       </div>
     );
   }
 
-  const hideNav = view === 'quiz' || view === 'welcome';
+  const hideNav = view === 'quiz' || view === 'welcome' || view === 'diagnosis';
   const isNoScrollView = view === 'dashboard' || view === 'quiz';
 
   const navItems = [

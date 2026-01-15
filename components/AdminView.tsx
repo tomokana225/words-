@@ -13,13 +13,12 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // 解析ロジック: 8カラムに対応
-  // 単語, 意味, 発音記号, 成り立ち, 例文, 例文訳, 同じ語源(word:mean,word:mean), 類義語(w1,w2)
+  // 解析ロジック: 指定された8カラム順に対応
+  // [0]単語, [1]意味, [2]発音記号, [3]成り立ち・コアイメージ, [4]例文, [5]例文の訳, [6]同じ語源の言葉(word:mean,word:mean), [7]類義語(syn1,syn2)
   const parsedWords = useMemo(() => {
     if (!pasteData.trim()) return [];
     const lines = pasteData.split(/\r?\n/).filter(line => line.trim());
     return lines.map((line, idx) => {
-      // タブ区切りを優先（Excel/スプレッドシートからのコピペ用）
       const parts = line.split('\t');
       
       const relatedWordsRaw = parts[6] || '';
@@ -44,6 +43,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
         level: selectedLevel,
         isMastered: false,
         streak: 0,
+        masteryCount: 0,
         difficultyScore: 0,
         nextReviewDate: Date.now()
       } as Word;
@@ -105,10 +105,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
           <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center text-white font-bold text-xs">2</div>
             <h3 className="text-lg font-black text-slate-800">スプレッドシートからコピペ</h3>
-            <span className="text-[10px] font-black text-indigo-400 bg-indigo-50 px-2 py-1 rounded">8カラム: 単語 / 意味 / 発音 / 成り立ち / 例文 / 訳 / 同じ語源 / 類義語</span>
-          </div>
-          <div className="text-[9px] text-slate-400 bg-slate-50 p-3 rounded-lg border border-slate-100 mb-2 leading-relaxed">
-            ※ <b>同じ語源</b>は「word:意味,word:意味」形式。<b>類義語</b>は「syn1,syn2」形式で入力してください。
+            <span className="text-[10px] font-black text-indigo-400 bg-indigo-50 px-2 py-1 rounded">8列順: 単語 / 意味 / 発音 / 成り立ち / 例文 / 訳 / 語源 / 類義語</span>
           </div>
           <textarea
             value={pasteData}
@@ -127,7 +124,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
                   <tr className="bg-slate-100 text-slate-500 font-black">
                     <th className="p-3 border-b">単語</th>
                     <th className="p-3 border-b">意味</th>
-                    <th className="p-3 border-b">同じ語源</th>
+                    <th className="p-3 border-b">語源仲間</th>
                     <th className="p-3 border-b">類義語</th>
                   </tr>
                 </thead>
@@ -136,7 +133,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
                     <tr key={i} className="hover:bg-indigo-50/30 transition border-b border-slate-50">
                       <td className="p-3 text-indigo-600">{w.term}</td>
                       <td className="p-3">{w.meaning}</td>
-                      <td className="p-3 text-slate-400">{w.relatedWords?.map(r => r.term).join(', ') || '-'}</td>
+                      <td className="p-3 text-slate-400 italic">{w.relatedWords?.map(r => r.term).join(', ') || '-'}</td>
                       <td className="p-3 truncate max-w-[100px]">{w.synonyms?.join(', ') || '-'}</td>
                     </tr>
                   ))}
@@ -152,7 +149,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
           disabled={parsedWords.length === 0 || isSaving}
           className={`w-full py-6 rounded-[2.5rem] font-black text-xl transition-all shadow-2xl bounce-on-click flex items-center justify-center gap-3 ${
             parsedWords.length > 0 
-              ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200' 
+              ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200 shadow-[0_20px_40px_rgba(79,70,229,0.2)] hover:-translate-y-1' 
               : 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none'
           }`}
         >

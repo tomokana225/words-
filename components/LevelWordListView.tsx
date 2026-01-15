@@ -11,7 +11,7 @@ interface LevelWordListViewProps {
 }
 
 const LevelWordListView: React.FC<LevelWordListViewProps> = ({ level, words, onStartQuiz, onBack, onViewWord }) => {
-  const masteredCount = words.filter(w => w.isMastered).length;
+  const masteredCount = words.filter(w => (w.masteryCount || 0) >= 4).length;
   const progress = words.length > 0 ? Math.round((masteredCount / words.length) * 100) : 0;
   const now = Date.now();
 
@@ -28,9 +28,9 @@ const LevelWordListView: React.FC<LevelWordListViewProps> = ({ level, words, onS
   };
 
   return (
-    <div className="h-full bg-slate-50 flex flex-col overflow-hidden animate-view">
+    <div className="h-full bg-slate-50 flex flex-col overflow-hidden animate-view relative">
       {/* Scrollable Header + List Area */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar pb-24">
+      <div className="flex-1 overflow-y-auto custom-scrollbar pb-32">
         <header className="p-4 md:p-8 space-y-8">
           <div className="flex items-center justify-between">
             <button onClick={onBack} className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm border border-slate-200 bounce-on-click hover:bg-slate-50 transition">
@@ -76,13 +76,13 @@ const LevelWordListView: React.FC<LevelWordListViewProps> = ({ level, words, onS
               >
                 <div className="flex items-center gap-4">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm transition-all duration-300 ${
-                    word.isMastered 
+                    (word.masteryCount || 0) >= 4 
                       ? 'bg-emerald-50 text-emerald-500' 
                       : (word.nextReviewDate && word.nextReviewDate <= now)
                       ? 'bg-rose-50 text-rose-500 animate-pulse'
                       : 'bg-slate-50 text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-600'
                   }`}>
-                    {word.isMastered ? '✓' : (word.nextReviewDate && word.nextReviewDate <= now) ? '⏰' : '•'}
+                    {(word.masteryCount || 0) >= 4 ? '✓' : (word.nextReviewDate && word.nextReviewDate <= now) ? '⏰' : '•'}
                   </div>
                   <div>
                     <p className="font-black text-slate-800 text-lg leading-tight group-hover:text-indigo-600 transition">{word.term}</p>
@@ -105,16 +105,18 @@ const LevelWordListView: React.FC<LevelWordListViewProps> = ({ level, words, onS
         </main>
       </div>
 
-      {/* Sticky Bottom Action */}
-      <div className="fixed bottom-20 lg:bottom-6 left-0 right-0 px-4 md:px-8 z-50 pointer-events-none">
-        <div className="max-w-4xl mx-auto flex justify-end">
+      {/* 改善: クイズ開始ボタンを画面下部に固定 */}
+      <div className="absolute bottom-6 left-0 right-0 px-4 md:px-8 z-20 pointer-events-none">
+        <div className="max-w-md mx-auto">
           <button 
             onClick={onStartQuiz}
             disabled={words.length === 0}
-            className={`pointer-events-auto px-10 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-base shadow-2xl hover:bg-black transition flex items-center gap-3 bounce-on-click ${words.length === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
+            className={`w-full pointer-events-auto py-5 bg-slate-900 text-white rounded-[2rem] font-black text-lg shadow-2xl hover:bg-black hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-3 bounce-on-click ${words.length === 0 ? 'opacity-30 cursor-not-allowed grayscale' : ''}`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            クイズを開始する
+            <div className="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+            <span>クイズ学習を開始する</span>
           </button>
         </div>
       </div>
