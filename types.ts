@@ -7,6 +7,15 @@ export enum EikenLevel {
   GRADE_1 = '1級'
 }
 
+export enum MasteryStatus {
+  UNLEARNED = '未学習',
+  WEAK = '苦手',
+  UNSTABLE = 'うろ覚え',
+  MASTERED = '暗記完了'
+}
+
+export type QuizType = 'wordToMeaning' | 'meaningToWord' | 'sentenceFillIn';
+
 export interface UserStats {
   xp: number;
   coins: number;
@@ -24,23 +33,26 @@ export interface Word {
   level: EikenLevel;
   phonetic?: string;
   etymology?: string;
-  relatedWords?: { term: string; meaning: string }[]; // 同じ語源を持つ単語
-  coreImageDescription?: string;
+  relatedWords?: { term: string; meaning: string }[];
   synonyms?: string[];
   exampleSentence?: string;
   exampleSentenceJapanese?: string;
-  imageUrl?: string;
+  
+  // 学習管理用
   isMastered?: boolean;
+  masteryCount?: number; // 正解回数 (0-4)
   difficultyScore?: number;
   nextReviewDate?: number;
   lastReviewedDate?: number;
-  reviewInterval?: number;
   streak?: number;
+  lastWasCorrect?: boolean; // 直近の回答が正解だったか
   rewardClaimed?: boolean;
 }
 
 export interface QuizQuestion {
   word: Word;
+  type: QuizType;
+  questionText: string;
   options: string[];
   correctIndex: number;
 }

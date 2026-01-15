@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { EikenLevel, Word, QuizResult, UserStats } from './types';
+import { EikenLevel, Word, QuizResult, UserStats, MasteryStatus } from './types';
 import Dashboard from './components/Dashboard';
 import QuizView from './components/QuizView';
 import WordDetailView from './components/WordDetailView';
@@ -30,7 +30,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
-  const [selectedLevel, setSelectedLevel] = useState<EikenLevel | 'ALL' | 'REVIEW' | 'WEAK'>('ALL');
+  const [selectedLevel, setSelectedLevel] = useState<EikenLevel | 'ALL' | 'REVIEW' | 'WEAK' | MasteryStatus>('ALL');
   const [history, setHistory] = useState<string[]>(['dashboard']);
 
   const touchStartX = useRef<number>(0);
@@ -105,7 +105,7 @@ const App: React.FC = () => {
         return progress ? { ...gw, ...progress } : gw;
       });
       setWords(merged);
-      const masteredCount = merged.filter(w => w.isMastered).length;
+      const masteredCount = merged.filter(w => (w.masteryCount || 0) >= 4).length;
       setStats(prev => ({
         ...prev,
         xp: masteredCount * 100 + (merged.length * 10),
@@ -138,12 +138,14 @@ const App: React.FC = () => {
     let earnedCoins = 0;
     let earnedXp = 0;
     newWords.forEach(w => {
-      if (w.isMastered && !w.rewardClaimed) {
-        earnedCoins += 50;
-        earnedXp += 100;
+      const isNewlyMastered = (w.masteryCount || 0) >= 4 && !w.rewardClaimed;
+      if (isNewlyMastered) {
+        earnedCoins += 100;
+        earnedXp += 200;
         w.rewardClaimed = true;
+        w.isMastered = true;
       } else {
-        earnedXp += 10;
+        earnedXp += 15;
       }
     });
     if (earnedCoins > 0 || earnedXp > 0) {
@@ -180,18 +182,26 @@ const App: React.FC = () => {
         if (idx > -1) {
           const w = { ...nextWords[idx] };
           const isCorrect = results.userAnswers[i] === q.correctIndex;
+          
           if (isCorrect) {
+            w.masteryCount = (w.masteryCount || 0) + 1;
             w.streak = (w.streak || 0) + 1;
-            w.difficultyScore = Math.max(0, (w.difficultyScore || 0) - 5);
-            const intervals = [1, 3, 7, 14, 30];
-            const days = intervals[Math.min(w.streak - 1, intervals.length - 1)];
+            w.lastWasCorrect = true;
+            w.difficultyScore = Math.max(0, (w.difficultyScore || 0) - 10);
+            
+            const intervals = [0.5, 1, 3, 7, 14, 30]; // 回数に応じた復習間隔（日数）
+            const days = intervals[Math.min(w.masteryCount, intervals.length - 1)];
             w.nextReviewDate = Date.now() + days * 24 * 60 * 60 * 1000;
-            if (w.streak >= 5) w.isMastered = true;
+            
+            if (w.masteryCount >= 4) w.isMastered = true;
           } else {
             w.streak = 0;
-            w.difficultyScore = (w.difficultyScore || 0) + 15;
-            w.nextReviewDate = Date.now() + 60 * 60 * 1000;
+            w.lastWasCorrect = false;
+            w.difficultyScore = (w.difficultyScore || 0) + 20;
+            w.nextReviewDate = Date.now() + 15 * 60 * 1000; // 15分後に再試
             w.isMastered = false;
+            // 正解回数を1減らす（ペナルティ）
+            w.masteryCount = Math.max(0, (w.masteryCount || 0) - 1);
           }
           nextWords[idx] = w;
           updatedBatch.push(w);
@@ -205,10 +215,22 @@ const App: React.FC = () => {
     }
   }, [user, grantRewards]);
 
+  const getMasteryStatus = (w: Word): MasteryStatus => {
+    if ((w.masteryCount || 0) >= 4) return MasteryStatus.MASTERED;
+    if (w.lastWasCorrect === false || (w.difficultyScore || 0) > 30) return MasteryStatus.WEAK;
+    if ((w.masteryCount || 0) > 0) return MasteryStatus.UNSTABLE;
+    return MasteryStatus.UNLEARNED;
+  };
+
   const quizPool = useMemo(() => {
     const now = Date.now();
-    if (selectedLevel === 'REVIEW') return words.filter(w => !w.isMastered && w.nextReviewDate && w.nextReviewDate <= now);
-    if (selectedLevel === 'WEAK') return words.filter(w => !w.isMastered && (w.difficultyScore || 0) > 20);
+    // 特殊フィルタ
+    if (selectedLevel === 'REVIEW') return words.filter(w => (w.masteryCount || 0) < 4 && w.nextReviewDate && w.nextReviewDate <= now);
+    if (selectedLevel === 'WEAK') return words.filter(w => getMasteryStatus(w) === MasteryStatus.WEAK);
+    if (selectedLevel === MasteryStatus.UNLEARNED) return words.filter(w => getMasteryStatus(w) === MasteryStatus.UNLEARNED);
+    if (selectedLevel === MasteryStatus.UNSTABLE) return words.filter(w => getMasteryStatus(w) === MasteryStatus.UNSTABLE);
+    if (selectedLevel === MasteryStatus.MASTERED) return words.filter(w => getMasteryStatus(w) === MasteryStatus.MASTERED);
+    
     if (selectedLevel === 'ALL') return words;
     return words.filter(w => w.level === selectedLevel);
   }, [words, selectedLevel]);
@@ -288,9 +310,7 @@ const App: React.FC = () => {
           {view === 'quiz' && <QuizView words={quizPool} onComplete={(r) => { saveQuizResults(r); resetToDashboard(); }} onViewWord={(w, r) => { saveQuizResults(r); setCurrentWord(w); navigateTo('detail'); }} onCancel={goBack} />}
           {view === 'detail' && currentWord && <WordDetailView word={currentWord} allWords={words} onUpdate={handleUpdateWord} onBack={goBack} onSelectSynonym={(t) => { 
             const found = words.find(w => w.term.toLowerCase() === t.toLowerCase());
-            if (found) {
-              setCurrentWord(found);
-            }
+            if (found) setCurrentWord(found);
           }} />}
           {view === 'admin' && isAdmin && (
             <AdminView 
