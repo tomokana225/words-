@@ -5,15 +5,17 @@ import { Word, QuizResult, QuizQuestion, QuizType } from '../types';
 interface QuizViewProps {
   words: Word[];
   config: { type: QuizType | 'random', count: number, soundEnabled: boolean };
+  initialResult: QuizResult | null; // 状態復元用
   onComplete: (result: QuizResult) => void;
   onViewWord: (word: Word, result: QuizResult) => void;
   onCancel: () => void;
 }
 
-// AudioContextを共有して初期化の遅延を防止
+// AudioContextを共有
 const sharedAudioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
 
 const playSFX = (type: 'correct' | 'wrong') => {
+  // 常にレジュームを試みる
   if (sharedAudioCtx.state === 'suspended') {
     sharedAudioCtx.resume();
   }
@@ -23,32 +25,34 @@ const playSFX = (type: 'correct' | 'wrong') => {
   gain.connect(sharedAudioCtx.destination);
 
   if (type === 'correct') {
-    // 「ピンポン」: 2つの高い音（ソ→ド）
+    // 「ピンポン」
     const playTone = (freq: number, start: number, duration: number) => {
       const osc = sharedAudioCtx.createOscillator();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, start);
       osc.connect(gain);
-      gain.gain.setValueAtTime(0.1, start);
-      gain.gain.exponentialRampToValueAtTime(0.01, start + duration);
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.15, start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
       osc.start(start);
       osc.stop(start + duration);
     };
-    playTone(659.25, now, 0.1); // ミ (E5)
-    playTone(880.00, now + 0.12, 0.2); // ラ (A5)
+    playTone(659.25, now, 0.15); // E5
+    playTone(880.00, now + 0.1, 0.25); // A5
   } else {
-    // 「ブー」: 低い濁った音
+    // 「ブー」
     const osc1 = sharedAudioCtx.createOscillator();
     const osc2 = sharedAudioCtx.createOscillator();
     osc1.type = 'sawtooth';
     osc2.type = 'sawtooth';
     osc1.frequency.setValueAtTime(140, now);
-    osc2.frequency.setValueAtTime(144, now); // 少しずらして唸らせる
+    osc2.frequency.setValueAtTime(144, now);
     
     osc1.connect(gain);
     osc2.connect(gain);
     
-    gain.gain.setValueAtTime(0.1, now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.12, now + 0.01);
     gain.gain.linearRampToValueAtTime(0, now + 0.4);
     
     osc1.start(now);
@@ -58,16 +62,19 @@ const playSFX = (type: 'correct' | 'wrong') => {
   }
 };
 
-const QuizView: React.FC<QuizViewProps> = ({ words, config, onComplete, onViewWord, onCancel }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState<number[]>([]);
-  const [isFinished, setIsFinished] = useState(false);
+const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onComplete, onViewWord, onCancel }) => {
+  const [currentIndex, setCurrentIndex] = useState(initialResult ? config.count - 1 : 0);
+  const [userAnswers, setUserAnswers] = useState<number[]>(initialResult ? initialResult.userAnswers : []);
+  const [isFinished, setIsFinished] = useState(!!initialResult);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(config.soundEnabled);
 
+  // クイズデータの生成または復元
   const quizData = useMemo(() => {
+    if (initialResult) return initialResult.questions;
     if (!words || words.length === 0) return [];
+    
     const pool = [...words].sort(() => 0.5 - Math.random()).slice(0, config.count);
     
     return pool.map(word => {
@@ -108,7 +115,7 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, onComplete, onViewWo
       }
       return { word, type, questionText, options, correctIndex: options.indexOf(correctValue) } as QuizQuestion;
     });
-  }, [words, config]);
+  }, [words, config, initialResult]);
 
   const handleAnswer = (index: number) => {
     if (selectedIdx !== null || quizData.length === 0) return;
@@ -119,9 +126,9 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, onComplete, onViewWo
     
     if (soundEnabled) playSFX(isCorrect ? 'correct' : 'wrong');
 
-    // 反応速度向上のため、ウェイト時間を600msから350msに短縮
     setTimeout(() => {
-      setUserAnswers(prev => [...prev, index]);
+      const nextAnswers = [...userAnswers, index];
+      setUserAnswers(nextAnswers);
       setSelectedIdx(null);
       setFeedback(null);
       if (currentIndex < quizData.length - 1) {
@@ -133,6 +140,7 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, onComplete, onViewWo
   };
 
   const results = useMemo(() => {
+    if (initialResult) return initialResult;
     if (!isFinished) return null;
     return {
       questions: quizData,
@@ -140,7 +148,16 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, onComplete, onViewWo
       score: userAnswers.reduce((acc, ans, idx) => ans === quizData[idx].correctIndex ? acc + 1 : acc, 0),
       timestamp: Date.now()
     } as QuizResult;
-  }, [isFinished, quizData, userAnswers]);
+  }, [isFinished, quizData, userAnswers, initialResult]);
+
+  // マウント時にAudioContextの再開を試みる（iOS対策）
+  useEffect(() => {
+    const resume = () => {
+      if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+    };
+    window.addEventListener('click', resume, { once: true });
+    return () => window.removeEventListener('click', resume);
+  }, []);
 
   if (quizData.length === 0 || (isFinished && results)) {
     if (isFinished && results) {
@@ -152,7 +169,7 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, onComplete, onViewWo
                  <div className="text-4xl">🏅</div>
                  <div className="text-left">
                    <h2 className="text-xl font-black tracking-tight text-slate-900">学習スコア</h2>
-                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Mastery Progress Saved</p>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Progress Saved</p>
                  </div>
                </div>
                <div className="flex items-center gap-1 bg-indigo-50 px-5 py-2 rounded-2xl border border-indigo-100">
@@ -209,7 +226,10 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, onComplete, onViewWo
               ))}
             </div>
             <button 
-              onClick={() => setSoundEnabled(!soundEnabled)}
+              onClick={() => {
+                if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+                setSoundEnabled(!soundEnabled);
+              }}
               className={`p-2 rounded-lg transition-colors ${soundEnabled ? 'text-indigo-600' : 'text-slate-300'}`}
               title="サウンド切替"
             >
