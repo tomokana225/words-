@@ -28,86 +28,94 @@ const LevelWordListView: React.FC<LevelWordListViewProps> = ({ level, words, onS
   };
 
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-right-8 duration-500 pb-20">
-      <header className="flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <button onClick={onBack} className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg border border-slate-100 bounce-on-click hover:bg-slate-50 transition">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-600"><polyline points="15 18 9 12 15 6"></polyline></svg>
-          </button>
-          <div className={`px-6 py-2 bg-gradient-to-r ${getLevelColorClass()} rounded-full text-white font-black text-sm shadow-xl tracking-widest uppercase`}>
-            {level === 'REVIEW' ? 'Review Mode' : level === 'ALL' ? 'All Words' : `Eiken ${level}`}
-          </div>
-          <div className="w-12"></div>
-        </div>
-
-        <div className={`p-8 md:p-12 rounded-[3.5rem] bg-gradient-to-br ${getLevelColorClass()} text-white shadow-2xl relative overflow-hidden group`}>
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl group-hover:scale-125 transition duration-1000"></div>
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
-            <div className="space-y-4">
-              <h2 className="text-4xl md:text-6xl font-black tracking-tighter">
-                {level === 'REVIEW' ? '復習が必要な単語' : level === 'ALL' ? 'すべての単語' : `英検 ${level}`}
-              </h2>
-              <p className="text-white/80 font-bold text-lg">収録数: {words.length} 単語</p>
+    <div className="h-full bg-slate-50 flex flex-col overflow-hidden animate-view">
+      {/* Scrollable Header + List Area */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar pb-24">
+        <header className="p-4 md:p-8 space-y-8">
+          <div className="flex items-center justify-between">
+            <button onClick={onBack} className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm border border-slate-200 bounce-on-click hover:bg-slate-50 transition">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-600"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <div className={`px-5 py-1.5 bg-gradient-to-r ${getLevelColorClass()} rounded-full text-white font-black text-[10px] shadow-lg tracking-widest uppercase`}>
+              {level === 'REVIEW' ? 'Review Mode' : level === 'ALL' ? 'All Words' : `Eiken ${level}`}
             </div>
-            <div className="flex flex-col items-center bg-black/10 backdrop-blur-xl p-8 rounded-[3rem] border border-white/20 min-w-[180px]">
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 opacity-60">Achievement</span>
-              <div className="flex items-baseline gap-1">
-                <span className="text-5xl font-black">{progress}</span>
-                <span className="text-xl font-black opacity-40">%</span>
+            <div className="w-10"></div>
+          </div>
+
+          <div className={`p-8 rounded-[2.5rem] bg-gradient-to-br ${getLevelColorClass()} text-white shadow-xl relative overflow-hidden`}>
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <h2 className="text-4xl font-black tracking-tighter">
+                  {level === 'REVIEW' ? '復習単語' : level === 'ALL' ? '全単語' : `英検 ${level}`}
+                </h2>
+                <p className="text-white/80 font-bold text-sm">収録: {words.length} words</p>
+              </div>
+              <div className="flex flex-col items-center bg-white/10 backdrop-blur-md p-4 px-6 rounded-2xl border border-white/20">
+                <span className="text-[9px] font-black uppercase tracking-widest mb-1 opacity-60">Mastery</span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black">{progress}</span>
+                  <span className="text-xs font-black opacity-40">%</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="flex flex-col gap-8">
-        <div className="flex justify-between items-center px-4">
-          <h3 className="text-xl font-black text-slate-800 tracking-tight">単語一覧</h3>
+        <main className="px-4 md:px-8 space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">単語リスト</h3>
+            <span className="text-[10px] font-bold text-slate-300">{words.length} items total</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {words.map((word) => (
+              <div 
+                key={word.id} 
+                onClick={() => onViewWord(word)}
+                className="group p-5 bg-white border border-slate-100 rounded-[1.5rem] shadow-sm hover:shadow-md hover:border-indigo-100 transition-all cursor-pointer flex justify-between items-center"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm transition-all duration-300 ${
+                    word.isMastered 
+                      ? 'bg-emerald-50 text-emerald-500' 
+                      : (word.nextReviewDate && word.nextReviewDate <= now)
+                      ? 'bg-rose-50 text-rose-500 animate-pulse'
+                      : 'bg-slate-50 text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-600'
+                  }`}>
+                    {word.isMastered ? '✓' : (word.nextReviewDate && word.nextReviewDate <= now) ? '⏰' : '•'}
+                  </div>
+                  <div>
+                    <p className="font-black text-slate-800 text-lg leading-tight group-hover:text-indigo-600 transition">{word.term}</p>
+                    <p className="text-[10px] text-slate-400 font-bold mt-1 truncate max-w-[150px]">{word.meaning}</p>
+                  </div>
+                </div>
+                <div className="text-slate-200 group-hover:text-indigo-300 transition transform group-hover:translate-x-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </div>
+              </div>
+            ))}
+
+            {words.length === 0 && (
+              <div className="col-span-full py-20 text-center opacity-30 flex flex-col items-center gap-4">
+                <span className="text-5xl">🌱</span>
+                <p className="font-black text-sm uppercase tracking-widest">No words found in this category</p>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+
+      {/* Sticky Bottom Action */}
+      <div className="fixed bottom-20 lg:bottom-6 left-0 right-0 px-4 md:px-8 z-50 pointer-events-none">
+        <div className="max-w-4xl mx-auto flex justify-end">
           <button 
             onClick={onStartQuiz}
             disabled={words.length === 0}
-            className={`px-10 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-lg shadow-2xl hover:bg-black transition flex items-center gap-3 bounce-on-click ${words.length === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
+            className={`pointer-events-auto px-10 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-base shadow-2xl hover:bg-black transition flex items-center gap-3 bounce-on-click ${words.length === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             クイズを開始する
           </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {words.map((word) => (
-            <div 
-              key={word.id} 
-              onClick={() => onViewWord(word)}
-              className="group p-6 bg-white border border-slate-50 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:scale-[1.02] transition-all cursor-pointer flex justify-between items-center"
-            >
-              <div className="flex items-center gap-6">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl transition-all duration-500 ${
-                  word.isMastered 
-                    ? 'bg-emerald-100 text-emerald-500' 
-                    : (word.nextReviewDate && word.nextReviewDate <= now)
-                    ? 'bg-rose-100 text-rose-500 animate-pulse'
-                    : 'bg-slate-50 text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-500'
-                }`}>
-                  {word.isMastered ? '✓' : (word.nextReviewDate && word.nextReviewDate <= now) ? '⏰' : '•'}
-                </div>
-                <div>
-                  <p className="font-black text-slate-700 text-xl leading-tight group-hover:text-indigo-600 transition">{word.term}</p>
-                  <p className="text-sm text-slate-400 font-bold mt-1.5">{word.meaning}</p>
-                </div>
-              </div>
-              <div className="text-slate-200 group-hover:text-indigo-400 transition transform group-hover:translate-x-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-              </div>
-            </div>
-          ))}
-
-          {words.length === 0 && (
-            <div className="col-span-full py-20 text-center space-y-4">
-              <span className="text-6xl block">🌵</span>
-              <p className="text-slate-400 font-black text-xl">学習する単語がありません</p>
-              <p className="text-slate-300 font-bold">右上の「単語追加」から新しい単語を登録しましょう</p>
-            </div>
-          )}
         </div>
       </div>
     </div>

@@ -111,25 +111,6 @@ export const getWordDetails = async (term: string): Promise<Partial<Word>> => {
   }
 };
 
-export const generateCoreImage = async (term: string, meaning: string): Promise<string | null> => {
-  try {
-    const response = await callGeminiProxy({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: `A clean, vivid 3D educational minimalist illustration for the English word "${term}" (meaning: ${meaning}). High quality icon style, bright professional colors, white background. Visualizes the core abstract concept without any text.` }]
-      },
-      config: {
-        imageConfig: { aspectRatio: "1:1" }
-      }
-    });
-    const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-    return part?.inlineData ? `data:image/png;base64,${part.inlineData.data}` : null;
-  } catch (error) {
-    console.error("generateCoreImage Proxy Error:", error);
-    return null;
-  }
-};
-
 export const getDiagnosticQuiz = async (level: string): Promise<any[]> => {
   try {
     const response = await callGeminiProxy({

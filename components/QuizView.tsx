@@ -63,20 +63,35 @@ const QuizView: React.FC<QuizViewProps> = ({ words, onComplete, onViewWord, onCa
   if (quizData.length === 0 || (isFinished && results)) {
     if (isFinished && results) {
       return (
-        <div className="h-full bg-slate-50 flex flex-col p-4 md:p-8 animate-view overflow-hidden">
-          <div className="w-full max-w-2xl mx-auto space-y-8 flex-1 flex flex-col min-h-0">
-            <div className="bg-white rounded-[2.5rem] p-8 text-center shadow-xl border border-slate-100 space-y-4 flex-shrink-0">
-               <div className="text-6xl animate-bounce">🏆</div>
-               <h2 className="text-3xl font-black tracking-tight text-slate-900">学習完了！</h2>
-               <div className="flex items-center justify-center gap-2">
-                 <p className="text-indigo-600 text-6xl font-black">{results.score}</p>
-                 <span className="text-slate-300 text-2xl font-black">/ {quizData.length}</span>
+        <div className="h-full bg-slate-50 flex flex-col p-4 md:p-6 animate-view overflow-hidden">
+          <div className="w-full max-w-2xl mx-auto flex-1 flex flex-col min-h-0 gap-4">
+            {/* Header Area (Compact) */}
+            <div className="bg-white rounded-[2rem] p-4 flex items-center justify-between shadow-sm border border-slate-100 flex-shrink-0">
+               <div className="flex items-center gap-4">
+                 <button 
+                   onClick={() => onComplete(results)}
+                   className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition bounce-on-click"
+                 >
+                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                 </button>
+                 <div className="text-4xl animate-bounce">🏆</div>
+                 <div className="text-left">
+                   <h2 className="text-xl font-black tracking-tight text-slate-900">学習完了！</h2>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Great Progress</p>
+                 </div>
                </div>
-               <p className="text-slate-400 font-bold text-sm">間違えた単語を振り返りましょう</p>
+               <div className="flex items-center gap-1 bg-indigo-50 px-4 py-2 rounded-2xl border border-indigo-100">
+                 <p className="text-indigo-600 text-3xl font-black">{results.score}</p>
+                 <span className="text-indigo-300 text-sm font-black">/ {quizData.length}</span>
+               </div>
             </div>
 
-            <div className="space-y-4 flex-1 flex flex-col min-h-0 overflow-hidden">
-               <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex-shrink-0">単語振り返りリスト</h3>
+            {/* List Area (Expanded) */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden space-y-2">
+               <div className="flex items-center justify-between px-2">
+                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">単語振り返りリスト</h3>
+                 <span className="text-[9px] font-bold text-slate-300">Tap for details</span>
+               </div>
                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-y-auto custom-scrollbar divide-y divide-slate-50 flex-1">
                  {results.questions.map((q, idx) => {
                    const isCorrect = results.userAnswers[idx] === q.correctIndex;
@@ -84,22 +99,22 @@ const QuizView: React.FC<QuizViewProps> = ({ words, onComplete, onViewWord, onCa
                      <div 
                        key={idx} 
                        onClick={() => onViewWord(q.word, results)}
-                       className="p-5 flex items-center justify-between hover:bg-slate-50 transition cursor-pointer group"
+                       className="p-4 flex items-center justify-between hover:bg-slate-50 transition cursor-pointer group"
                      >
-                       <div className="flex items-center gap-4">
-                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 ${isCorrect ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
+                       <div className="flex items-center gap-4 flex-1">
+                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ${isCorrect ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
                            {isCorrect ? '✓' : '×'}
                          </div>
-                         <div>
-                           <p className="font-black text-slate-800 text-base group-hover:text-indigo-600 transition">{q.word.term}</p>
-                           <p className="text-[10px] text-slate-400 font-bold">{q.word.meaning}</p>
+                         <div className="min-w-0">
+                           <p className="font-black text-slate-800 text-sm group-hover:text-indigo-600 transition truncate">{q.word.term}</p>
+                           <p className="text-[9px] text-slate-400 font-bold truncate">{q.word.meaning}</p>
                          </div>
                        </div>
-                       <div className="text-right flex-shrink-0">
+                       <div className="text-right flex-shrink-0 ml-4">
                          {!isCorrect && (
-                           <p className="text-[10px] font-black text-rose-400 mb-1">Miss: {q.options[results.userAnswers[idx]]}</p>
+                           <p className="text-[9px] font-black text-rose-400 leading-tight">Miss: {q.options[results.userAnswers[idx]]}</p>
                          )}
-                         <p className="text-[10px] font-black text-emerald-500">Correct: {q.word.meaning}</p>
+                         <p className="text-[9px] font-black text-emerald-500 leading-tight">Correct: {q.word.meaning}</p>
                        </div>
                      </div>
                    );
@@ -107,15 +122,16 @@ const QuizView: React.FC<QuizViewProps> = ({ words, onComplete, onViewWord, onCa
                </div>
             </div>
 
-            <button 
-              onClick={() => onComplete(results)} 
-              className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-lg shadow-xl hover:bg-black transition-all bounce-on-click flex-shrink-0"
-            >
-              ダッシュボードに戻る
-            </button>
-          </div>
-          <div className="h-12 flex items-center justify-center opacity-20 mt-4 flex-shrink-0">
-             <p className="text-[9px] font-black uppercase tracking-[0.4em]">Review Mode Enabled</p>
+            {/* Bottom Button Area */}
+            <div className="flex flex-col gap-2 flex-shrink-0">
+              <button 
+                onClick={() => onComplete(results)} 
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-base shadow-lg hover:bg-black transition-all bounce-on-click"
+              >
+                ダッシュボードに戻る
+              </button>
+              <p className="text-[8px] font-black text-center text-slate-300 uppercase tracking-[0.4em]">Review Mode Active</p>
+            </div>
           </div>
         </div>
       );
