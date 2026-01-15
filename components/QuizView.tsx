@@ -233,7 +233,9 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onCom
     );
   }
 
+  // クイズ実行中のガード: currentIndexが範囲外の場合は何も表示しない
   const currentQ = quizData[currentIndex];
+  if (!currentQ) return null;
 
   return (
     <div className="h-full bg-slate-50 flex flex-col p-4 md:p-8 overflow-hidden animate-view relative">
@@ -284,7 +286,7 @@ const QuizView: React.FC<QuizViewProps> = ({ words, config, initialResult, onCom
             </h2>
             {currentQ.type === 'sentenceFillIn' && (
               <div className="bg-indigo-50/30 p-4 rounded-2xl border border-indigo-50/50 mt-4 max-w-md mx-auto">
-                <p className="text-xs font-bold text-slate-500 italic">"{currentQ.word.exampleSentenceJapanese}"</p>
+                <p className="text-xs font-bold text-slate-500 italic">"{currentQ.word?.exampleSentenceJapanese}"</p>
               </div>
             )}
           </div>
