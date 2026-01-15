@@ -33,11 +33,9 @@ const App: React.FC = () => {
   const [selectedLevel, setSelectedLevel] = useState<EikenLevel | 'ALL' | 'REVIEW' | 'WEAK'>('ALL');
   const [history, setHistory] = useState<string[]>(['dashboard']);
 
-  // スワイプバック用のRef
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
 
-  // ユーザー統計
   const [stats, setStats] = useState<UserStats>({
     xp: 0,
     coins: 500,
@@ -57,6 +55,14 @@ const App: React.FC = () => {
     setView(newView);
   }, []);
 
+  const resetToDashboard = useCallback(() => {
+    // 履歴を完全に上書きして「戻る」でクイズ画面に行かないようにする
+    setHistory(['dashboard']);
+    setView('dashboard');
+    // ブラウザの履歴も操作（SPA内の擬似的な履歴制御）
+    window.history.replaceState(null, '', '/');
+  }, []);
+
   const goBack = useCallback(() => {
     if (history.length > 1) {
       const newHistory = [...history];
@@ -65,11 +71,10 @@ const App: React.FC = () => {
       setHistory(newHistory);
       setView(prevView as any);
     } else {
-      setView('dashboard');
+      resetToDashboard();
     }
-  }, [history]);
+  }, [history, resetToDashboard]);
 
-  // スワイプで戻るアクション
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
       touchStartX.current = e.touches[0].clientX;
@@ -79,11 +84,7 @@ const App: React.FC = () => {
     const handleTouchEnd = (e: TouchEvent) => {
       const deltaX = e.changedTouches[0].clientX - touchStartX.current;
       const deltaY = e.changedTouches[0].clientY - touchStartY.current;
-
-      // クイズ中やウェルカム画面では無効化
       if (view === 'quiz' || view === 'welcome') return;
-
-      // 左端からの右スワイプかつ水平移動が垂直移動より大きい場合
       if (touchStartX.current < 60 && deltaX > 100 && Math.abs(deltaY) < 60) {
         goBack();
       }
@@ -124,7 +125,7 @@ const App: React.FC = () => {
         setUser(fbUser);
         await refreshWords(fbUser);
         if (fbUser || localStorage.getItem('eiken_mock_user')) {
-          if (view === 'welcome') setView('dashboard');
+          if (view === 'welcome') resetToDashboard();
         } else {
           setView('welcome');
         }
@@ -133,7 +134,7 @@ const App: React.FC = () => {
       return () => unsubscribe();
     };
     init();
-  }, [refreshWords]);
+  }, [refreshWords, resetToDashboard]);
 
   const grantRewards = useCallback((newWords: Word[]) => {
     let earnedCoins = 0;
@@ -238,7 +239,7 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col lg:flex-row bg-slate-50 font-sans selection:bg-indigo-100 selection:text-indigo-700 overflow-hidden">
       {!hideNav && (
         <aside className="hidden lg:flex w-64 flex-col bg-white border-r border-slate-200 py-10 px-6 h-screen sticky top-0 z-50">
-          <div className="mb-10 px-2 cursor-pointer" onClick={() => navigateTo('dashboard')}>
+          <div className="mb-10 px-2 cursor-pointer" onClick={() => resetToDashboard()}>
             <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <div className="w-6 h-6 gradient-primary rounded-md"></div>
               EikenMaster AI
@@ -278,20 +279,15 @@ const App: React.FC = () => {
       )}
 
       <main className={`flex-1 w-full max-w-4xl mx-auto px-4 lg:px-8 ${hideNav ? 'pt-0' : 'pt-6 lg:pt-10'} ${isNoScrollView ? 'h-screen overflow-hidden' : 'pb-24 overflow-y-auto h-screen custom-scrollbar'} relative`}>
-        {/* 左スワイプヒント（オプション） */}
-        {!hideNav && history.length > 1 && (
-          <div className="hidden lg:block fixed left-64 top-1/2 -translate-y-1/2 w-4 h-24 bg-indigo-50/30 rounded-r-full border-r border-indigo-100 pointer-events-none opacity-0 hover:opacity-100 transition-opacity"></div>
-        )}
-
         <div className={`animate-view ${isNoScrollView ? 'h-full flex flex-col' : ''}`}>
-          {view === 'welcome' && <WelcomeView onLogin={loginWithGoogle} onGuest={() => navigateTo('dashboard')} />}
+          {view === 'welcome' && <WelcomeView onLogin={loginWithGoogle} onGuest={() => resetToDashboard()} />}
           {view === 'dashboard' && <Dashboard user={user} stats={stats} words={words} onSelectLevel={(l) => { setSelectedLevel(l as any); navigateTo('level_preview'); }} onViewWord={(w) => { setCurrentWord(w); navigateTo('detail'); }} onGoShop={() => navigateTo('shop')} />}
           {view === 'wordbook' && <CourseSelectionView onSelect={(l) => { setSelectedLevel(l); navigateTo('level_preview'); }} onLogin={loginWithGoogle} onBack={goBack} />}
           {view === 'diagnosis' && <DiagnosisView onCancel={goBack} />}
           {view === 'mypage' && <MyPageView user={user} stats={stats} words={words} onLogout={logout} onLogin={loginWithGoogle} onAdmin={() => navigateTo('admin')} isAdmin={isAdmin} onBack={goBack} onSelectItem={(id) => setStats(prev => ({...prev, activeAvatar: id}))} />}
           {view === 'shop' && <ShopView stats={stats} onPurchase={(item) => { setStats(prev => ({ ...prev, coins: prev.coins - item.price, unlockedItems: [...prev.unlockedItems, item.id] })); }} onGacha={(items) => { setStats(prev => ({ ...prev, coins: prev.coins - 300, unlockedItems: [...prev.unlockedItems, ...items.map(i => i.id)] })); }} onBack={goBack} />}
           {view === 'level_preview' && <LevelWordListView level={selectedLevel as any} words={quizPool} onStartQuiz={() => navigateTo('quiz')} onBack={goBack} onViewWord={(w) => { setCurrentWord(w); navigateTo('detail'); }} />}
-          {view === 'quiz' && <QuizView words={quizPool} onComplete={(r) => { saveQuizResults(r); navigateTo('dashboard'); }} onViewWord={(w, r) => { saveQuizResults(r); setCurrentWord(w); navigateTo('detail'); }} onCancel={goBack} />}
+          {view === 'quiz' && <QuizView words={quizPool} onComplete={(r) => { saveQuizResults(r); resetToDashboard(); }} onViewWord={(w, r) => { saveQuizResults(r); setCurrentWord(w); navigateTo('detail'); }} onCancel={goBack} />}
           {view === 'detail' && currentWord && <WordDetailView word={currentWord} onUpdate={handleUpdateWord} onBack={goBack} onSelectSynonym={(t) => { setCurrentWord({ id: `syn-${Date.now()}`, term: t, meaning: '解析中...', level: EikenLevel.GRADE_3 }); }} />}
           {view === 'admin' && isAdmin && (
             <AdminView 

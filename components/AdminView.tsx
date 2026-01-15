@@ -13,7 +13,8 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // 解析ロジック: 単語, 意味, 成り立ち, 例文, 例文の訳 の5カラムに対応
+  // 解析ロジック: 8カラムに対応
+  // 単語, 意味, 発音記号, 成り立ち, 例文, 例文訳, 同じ語源(word:mean,word:mean), 類義語(w1,w2)
   const parsedWords = useMemo(() => {
     if (!pasteData.trim()) return [];
     const lines = pasteData.split(/\r?\n/).filter(line => line.trim());
@@ -21,13 +22,25 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
       // タブ区切りを優先（Excel/スプレッドシートからのコピペ用）
       const parts = line.split('\t');
       
+      const relatedWordsRaw = parts[6] || '';
+      const relatedWords = relatedWordsRaw.split(',').filter(s => s.trim()).map(s => {
+        const [t, m] = s.split(':');
+        return { term: t?.trim() || '', meaning: m?.trim() || '' };
+      }).filter(item => item.term);
+
+      const synonymsRaw = parts[7] || '';
+      const synonyms = synonymsRaw.split(',').filter(s => s.trim()).map(s => s.trim());
+
       return {
         id: `admin-${Date.now()}-${idx}`,
         term: parts[0]?.trim() || '',
         meaning: parts[1]?.trim() || '',
-        etymology: parts[2]?.trim() || '',
-        exampleSentence: parts[3]?.trim() || '',
-        exampleSentenceJapanese: parts[4]?.trim() || '',
+        phonetic: parts[2]?.trim() || '',
+        etymology: parts[3]?.trim() || '',
+        exampleSentence: parts[4]?.trim() || '',
+        exampleSentenceJapanese: parts[5]?.trim() || '',
+        relatedWords: relatedWords.length > 0 ? relatedWords : undefined,
+        synonyms: synonyms.length > 0 ? synonyms : undefined,
         level: selectedLevel,
         isMastered: false,
         streak: 0,
@@ -53,7 +66,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
       <header className="flex items-center justify-between mb-2">
         <div>
           <h2 className="text-3xl font-black text-slate-800 tracking-tighter">一括データ登録</h2>
-          <p className="text-slate-400 font-bold text-sm">Excelの5列をそのまま貼り付けてFirebaseへ同期</p>
+          <p className="text-slate-400 font-bold text-sm">Excelの8列をそのまま貼り付けてFirebaseへ同期</p>
         </div>
         <button onClick={onCancel} className="text-slate-400 font-bold text-sm uppercase hover:text-rose-500 transition">キャンセル</button>
       </header>
@@ -92,12 +105,15 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
           <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center text-white font-bold text-xs">2</div>
             <h3 className="text-lg font-black text-slate-800">スプレッドシートからコピペ</h3>
-            <span className="text-[10px] font-black text-indigo-400 bg-indigo-50 px-2 py-1 rounded">5カラム対応: 単語 / 意味 / 成り立ち / 例文 / 例文訳</span>
+            <span className="text-[10px] font-black text-indigo-400 bg-indigo-50 px-2 py-1 rounded">8カラム: 単語 / 意味 / 発音 / 成り立ち / 例文 / 訳 / 同じ語源 / 類義語</span>
+          </div>
+          <div className="text-[9px] text-slate-400 bg-slate-50 p-3 rounded-lg border border-slate-100 mb-2 leading-relaxed">
+            ※ <b>同じ語源</b>は「word:意味,word:意味」形式。<b>類義語</b>は「syn1,syn2」形式で入力してください。
           </div>
           <textarea
             value={pasteData}
             onChange={(e) => setPasteData(e.target.value)}
-            placeholder="apple	りんご	中心に芯がある果物	I like apples.	りんごが好きです。"
+            placeholder="apple	りんご	/ˈæp.əl/	中心に芯がある果物	I like apples.	りんごが好きです。	pineapple:パイナップル	fruit,red"
             className="w-full h-64 p-6 bg-slate-50 border-2 border-slate-100 rounded-[2rem] font-mono text-sm focus:ring-8 focus:ring-indigo-500/5 outline-none transition shadow-inner"
           />
         </div>
@@ -106,13 +122,13 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
           <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 animate-in slide-in-from-top-4">
             <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 px-2">インポートプレビュー ({parsedWords.length}件)</h4>
             <div className="overflow-x-auto custom-scrollbar rounded-xl border border-slate-200 bg-white">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full text-left text-[10px] border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-500 font-black">
                     <th className="p-3 border-b">単語</th>
                     <th className="p-3 border-b">意味</th>
-                    <th className="p-3 border-b">成り立ち</th>
-                    <th className="p-3 border-b">例文</th>
+                    <th className="p-3 border-b">同じ語源</th>
+                    <th className="p-3 border-b">類義語</th>
                   </tr>
                 </thead>
                 <tbody className="font-bold text-slate-600">
@@ -120,8 +136,8 @@ const AdminView: React.FC<AdminViewProps> = ({ onImport, onCancel }) => {
                     <tr key={i} className="hover:bg-indigo-50/30 transition border-b border-slate-50">
                       <td className="p-3 text-indigo-600">{w.term}</td>
                       <td className="p-3">{w.meaning}</td>
-                      <td className="p-3 truncate max-w-[150px]">{w.etymology}</td>
-                      <td className="p-3 truncate max-w-[200px]">{w.exampleSentence}</td>
+                      <td className="p-3 text-slate-400">{w.relatedWords?.map(r => r.term).join(', ') || '-'}</td>
+                      <td className="p-3 truncate max-w-[100px]">{w.synonyms?.join(', ') || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
